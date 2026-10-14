@@ -5,7 +5,14 @@ import { prisma } from './lib/prisma.js';
 import { createRedis, redis } from './lib/redis.js';
 import { failAnalysis, isPermanent, processAnalysis } from './queue/processors/analyze.js';
 import { processIngest } from './queue/processors/ingest.js';
-import { closeQueues, QUEUE_NAMES, type AnalyzeJob, type IngestJob } from './queue/queues.js';
+import { processWebhookDelivery } from './queue/processors/webhookDelivery.js';
+import {
+  closeQueues,
+  QUEUE_NAMES,
+  type AnalyzeJob,
+  type IngestJob,
+  type WebhookJob,
+} from './queue/queues.js';
 import { publishEvent } from './realtime/events.js';
 
 // Workers hold blocking Redis connections, so each gets its own instead of the shared client.
@@ -47,7 +54,13 @@ const analyzeWorker = new Worker<AnalyzeJob>(
   { connection: createRedis(), concurrency: env.QUEUE_CONCURRENCY_ANALYZE },
 );
 
-const workers = [ingestWorker, analyzeWorker];
+const webhookWorker = new Worker<WebhookJob>(
+  QUEUE_NAMES.webhook,
+  (job) => processWebhookDelivery(job.data.deliveryId, job.attemptsMade + 1 >= (job.opts.attempts ?? 1)),
+  { connection: createRedis(), concurrency: env.QUEUE_CONCURRENCY_WEBHOOK },
+);
+
+const workers = [ingestWorker, analyzeWorker, webhookWorker];
 
 for (const worker of workers) {
   worker.on('failed', (job, err) => logger.warn({ queue: worker.name, jobId: job?.id, err }, 'job failed'));

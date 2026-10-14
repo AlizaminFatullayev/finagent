@@ -29,6 +29,10 @@ export const matrix: {
   { method: 'get', path: '/api/audit-logs', allowed: ['ADMIN'] },
   { method: 'get', path: '/api/files', allowed: ['ANALYST', 'MANAGER', 'ADMIN'] },
   { method: 'post', path: '/api/files', allowed: ['ANALYST', 'MANAGER', 'ADMIN'] },
+  { method: 'get', path: '/api/webhooks', allowed: ['ADMIN'] },
+  { method: 'post', path: '/api/webhooks', allowed: ['ADMIN'], body: {} },
+  { method: 'delete', path: '/api/webhooks/00000000-0000-4000-8000-000000000000', allowed: ['ADMIN'] },
+  { method: 'get', path: '/api/analyses/00000000-0000-4000-8000-000000000000', allowed: ['ANALYST', 'MANAGER', 'ADMIN'] },
 ];
 
 describe('RBAC matrix', () => {

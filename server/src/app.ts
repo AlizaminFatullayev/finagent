@@ -12,7 +12,9 @@ import { auditRouter } from './modules/audit/routes.js';
 import { authRouter } from './modules/auth/routes.js';
 import { filesRouter } from './modules/files/routes.js';
 import { healthRouter } from './modules/health/routes.js';
+import { reportsRouter } from './modules/reports/routes.js';
 import { usersRouter } from './modules/users/routes.js';
+import { webhooksRouter } from './modules/webhooks/routes.js';
 
 /** Builds the Express app without listening, so tests can drive it in-process with Supertest. */
 export function createApp() {
@@ -43,7 +45,9 @@ export function createApp() {
   app.use('/api/audit-logs', auditRouter);
   app.use('/api/files/:id/analyses', fileAnalysesRouter);
   app.use('/api/files', filesRouter);
+  app.use('/api/analyses', reportsRouter);
   app.use('/api/analyses', analysesRouter);
+  app.use('/api/webhooks', webhooksRouter);
 
   app.use(notFound);
   app.use(errorHandler);

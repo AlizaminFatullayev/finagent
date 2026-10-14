@@ -14,6 +14,7 @@ import { AppError } from '../../lib/errors.js';
 import { logger } from '../../lib/logger.js';
 import { prisma } from '../../lib/prisma.js';
 import { rememberInCache } from '../../modules/analyses/service.js';
+import { dispatchWebhookEvent } from '../../modules/webhooks/service.js';
 import { publishEvent } from '../../realtime/events.js';
 
 export type Stage = 'parsing' | 'analyzing' | 'summarizing' | 'done';
@@ -104,6 +105,7 @@ export async function processAnalysis(
   await rememberInCache(analysis.cacheKey, analysisId);
   await progress('done', 100);
   await publishEvent('analysis:completed', ownerId, { analysisId, fileId: analysis.fileId });
+  await dispatchWebhookEvent('analysis.completed', { analysisId, fileId: analysis.fileId });
   return { ownerId, fileId: analysis.fileId };
 }
 
