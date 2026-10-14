@@ -14,6 +14,24 @@ import { resetState } from '../helpers.js';
 const enabled = process.env.LIVE_LLM_TEST === '1' && Boolean(env.ANTHROPIC_API_KEY);
 const KNOWN_FAILURES = ['LLM_REFUSED', 'LLM_TIMEOUT', 'LLM_ERROR', 'AGENT_FAILED'];
 
+/**
+ * Status, error.type and a truncated error.message from an error response. Nothing from the
+ * request is included, and anything shaped like an API key is masked in case a provider echoes it.
+ */
+async function sanitizedError(res: Response) {
+  let type = 'unknown';
+  let message: string;
+  try {
+    const body = (await res.clone().json()) as { error?: { type?: unknown; message?: unknown } };
+    type = String(body.error?.type ?? 'unknown');
+    message = String(body.error?.message ?? '');
+  } catch {
+    message = '(non-JSON error body)';
+  }
+  message = message.replace(/\b(sk|key)[-_][A-Za-z0-9_-]{8,}/gi, '[REDACTED]').slice(0, 300);
+  return `HTTP ${res.status} ${type}: ${message}`;
+}
+
 describe.skipIf(!enabled)('live LLM provider on the synthetic sample (opt-in)', () => {
   beforeAll(resetState);
 
@@ -25,9 +43,13 @@ describe.skipIf(!enabled)('live LLM provider on the synthetic sample (opt-in)', 
 
     // Every request body is kept in memory for the scan below and never printed.
     const payloads: string[] = [];
+    // The provider maps HTTP errors to fixed messages, so the raw error is read here for the report only.
+    const providerErrors: string[] = [];
     const capturingFetch: typeof fetch = async (input, init) => {
       if (typeof init?.body === 'string') payloads.push(init.body);
-      return fetch(input, init);
+      const res = await fetch(input, init);
+      if (!res.ok) providerErrors.push(await sanitizedError(res));
+      return res;
     };
     const provider = new AnthropicProvider({
       apiKey: env.ANTHROPIC_API_KEY!,
@@ -61,6 +83,7 @@ describe.skipIf(!enabled)('live LLM provider on the synthetic sample (opt-in)', 
       `token usage:        ${JSON.stringify(analysis.tokenUsage)}`,
       `verification:       ${JSON.stringify(analysis.verification && { checked: analysis.verification.checked, verified: analysis.verification.verified })}`,
       `payload PII scan:   ${forbidden.length} sensitive values, ${leaks.length} found in outbound payloads`,
+      ...providerErrors.map((e, i) => `provider error ${i + 1}:   ${e}`),
     ];
     console.log(`\nLIVE LLM TEST REPORT\n${report.join('\n')}\n`);
 
