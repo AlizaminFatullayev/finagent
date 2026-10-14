@@ -2,6 +2,10 @@ import { randomUUID } from 'node:crypto';
 import { basename } from 'node:path';
 import { env } from '../../config/env.js';
 import { inspectUpload } from '../../domain/ingest/inspect.js';
+import type { ColumnSchema } from '../../domain/ingest/schema.js';
+import type { Cell } from '../../domain/ingest/values.js';
+import { Masker } from '../../domain/privacy/masker.js';
+import { loadVault } from '../../domain/privacy/vault.js';
 import { sha256 } from '../../lib/crypto.js';
 import { ForbiddenError, NotFoundError, ValidationError } from '../../lib/errors.js';
 import { newestFirst, pageArgs, toPage, type PaginationQuery } from '../../lib/pagination.js';
@@ -110,12 +114,15 @@ export async function getFile(user: Actor, fileId: string, ctx: AuditContext) {
   return file;
 }
 
-export async function getRows(user: Actor, fileId: string, query: RowsQuery) {
+export async function getRows(user: Actor, fileId: string, query: RowsQuery, ctx: AuditContext) {
   await findAccessibleFile(user, fileId);
+  // Seeing raw PII is a stronger right than seeing the file: analysts always get masked rows.
+  if (query.unmask && !canSeeAllFiles(user.role))
+    throw new ForbiddenError('Only managers and admins can unmask PII');
   const sheet = await prisma.sheet.findFirst({
     where: { fileId, ...(query.sheetId ? { id: query.sheetId } : {}) },
     orderBy: { position: 'asc' },
-    select: { id: true },
+    select: { id: true, columns: true },
   });
   if (!sheet) throw new NotFoundError('Sheet');
 
@@ -127,8 +134,29 @@ export async function getRows(user: Actor, fileId: string, query: RowsQuery) {
     select: { rowIndex: true, data: true },
   });
   const hasMore = rows.length > query.limit;
-  const items = hasMore ? rows.slice(0, query.limit) : rows;
-  return { sheetId: sheet.id, items, nextCursor: hasMore ? (items.at(-1)?.rowIndex ?? null) : null };
+  const page = (hasMore ? rows.slice(0, query.limit) : rows) as {
+    rowIndex: number;
+    data: Record<string, Cell>;
+  }[];
+  const nextCursor = hasMore ? (page.at(-1)?.rowIndex ?? null) : null;
+
+  if (query.unmask) {
+    await recordAudit(ctx, {
+      action: 'pii.unmask',
+      resourceType: 'file',
+      resourceId: fileId,
+      metadata: { sheetId: sheet.id, rows: page.length, fromRow: page[0]?.rowIndex ?? null },
+    });
+    return { sheetId: sheet.id, items: page, nextCursor, masked: false };
+  }
+  // Masking happens on read from the stored vault, so the same value always shows the same token.
+  const masker = Masker.fromTokens(await loadVault(fileId));
+  return {
+    sheetId: sheet.id,
+    items: masker.maskRows(page, sheet.columns as ColumnSchema[]),
+    nextCursor,
+    masked: true,
+  };
 }
 
 export async function deleteFile(user: Actor, fileId: string, ctx: AuditContext) {

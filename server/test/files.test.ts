@@ -111,4 +111,30 @@ describe('files', () => {
     expect(await prisma.auditLog.count({ where: { action: 'file.delete', resourceId: id } })).toBe(1);
     expect(await prisma.auditLog.count({ where: { action: 'file.view', resourceId: id } })).toBe(1);
   });
+
+  it('masks PII in rows by default and lets only managers/admins unmask, with an audit entry', async () => {
+    const analyst = await userWithToken(app, 'ANALYST');
+    const manager = await userWithToken(app, 'MANAGER');
+    const { body } = await upload(analyst.auth, await messyWorkbook()).expect(202);
+    await processIngest(body.data.id);
+
+    const masked = await request(app).get(`/api/files/${body.data.id}/rows`).set(analyst.auth).expect(200);
+    expect(masked.body.meta.masked).toBe(true);
+    expect(masked.body.data[0].data.customer).toBe('[PERSON_1]');
+    expect(masked.body.data[0].data.amount).toBe(1500.5);
+    // The stored vault is ciphertext, never the plain names.
+    const vault = await prisma.maskingVault.findUniqueOrThrow({ where: { fileId: body.data.id } });
+    expect(vault.encryptedMap).not.toContain('Aysel');
+
+    await request(app).get(`/api/files/${body.data.id}/rows?unmask=true`).set(analyst.auth).expect(403);
+    const raw = await request(app)
+      .get(`/api/files/${body.data.id}/rows?unmask=true`)
+      .set(manager.auth)
+      .expect(200);
+    expect(raw.body.meta.masked).toBe(false);
+    expect(raw.body.data[0].data.customer).toBe('Aysel Mammadova');
+    expect(await prisma.auditLog.count({ where: { action: 'pii.unmask', actorId: manager.user.id } })).toBe(
+      1,
+    );
+  });
 });

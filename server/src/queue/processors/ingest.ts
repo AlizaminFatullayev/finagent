@@ -2,6 +2,8 @@ import { UnrecoverableError } from 'bullmq';
 import { env } from '../../config/env.js';
 import { IngestError, parseCsv, parseXlsx } from '../../domain/ingest/parser.js';
 import { inferSheet } from '../../domain/ingest/schema.js';
+import { Masker } from '../../domain/privacy/masker.js';
+import { saveVault } from '../../domain/privacy/vault.js';
 import { logger } from '../../lib/logger.js';
 import { prisma } from '../../lib/prisma.js';
 import { storage } from '../../storage/storage.js';
@@ -34,6 +36,10 @@ export async function processIngest(fileId: string, report: ProgressReporter = (
     const sheets = rawSheets.map(inferSheet).filter((s) => s.columns.length > 0);
     if (sheets.length === 0) throw new IngestError('No data was found in the file');
 
+    // Tokens are assigned once per file at ingest, so every later read and analysis sees the same ones.
+    const masker = new Masker();
+    for (const sheet of sheets) masker.maskRows(sheet.rows, sheet.columns);
+
     await prisma.$transaction(
       async (tx) => {
         // A retried job may find rows from an earlier partial attempt; start clean.
@@ -55,6 +61,7 @@ export async function processIngest(fileId: string, report: ProgressReporter = (
             });
           }
         }
+        await saveVault(fileId, masker.tokens, tx);
         await tx.file.update({ where: { id: fileId }, data: { status: 'READY' } });
       },
       { timeout: 5 * 60_000 },

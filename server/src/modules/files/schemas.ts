@@ -66,6 +66,11 @@ export const RowsQuery = z.object({
   sheetId: z.uuid().optional().meta({ description: 'Defaults to the first sheet' }),
   cursor: z.coerce.number().int().min(0).optional().meta({ description: 'rowIndex from `meta.nextCursor`' }),
   limit: z.coerce.number().int().min(1).max(500).default(100),
+  unmask: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((v) => v === 'true')
+    .meta({ description: 'Return original PII values (managers and admins only; audited as pii.unmask)' }),
 });
 export type RowsQuery = z.infer<typeof RowsQuery>;
 
