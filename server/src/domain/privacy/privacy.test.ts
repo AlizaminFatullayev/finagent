@@ -72,7 +72,14 @@ describe('Masker', () => {
     // A 7-char product code outside a FIN column is not a FIN.
     expect(m.maskCell('AB12CD3', col('Product code', 'id'))).toBe('AB12CD3');
     expect(m.maskCell('Branch 12, order 1234567', col('Note'))).toBe('Branch 12, order 1234567');
+    expect(m.maskCell(42, col('Score', 'number'))).toBe(42);
     expect(Object.keys(m.tokens)).toHaveLength(0);
+  });
+
+  it('still catches cards and phones that type inference left in number columns', () => {
+    const m = new Masker();
+    expect(m.maskCell('4111111111111111', col('Ref', 'number'))).toBe('[CARD_1]');
+    expect(m.maskCell('+994 55 760 20 78', col('Contact', 'number'))).toBe('[PHONE_1]');
   });
 
   it('round-trips through a stored token map and unmasks nested values', () => {

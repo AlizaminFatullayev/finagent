@@ -98,6 +98,15 @@ export function inferType(name: string, values: Cell[]): ColumnType {
     ) {
       return 'currency';
     }
+    // Long digit strings (cards, phones, account numbers) are identifiers even with repeats; no
+    // one sums phone numbers, and treating them as numbers would hide them from PII masking.
+    if (
+      values.every(
+        (v) => typeof v === 'string' && /^\+?[\d\s-]{9,}$/.test(v) && (v.match(/\d/g)?.length ?? 0) >= 9,
+      )
+    ) {
+      return 'id';
+    }
     // Integer codes with an id-like header are identifiers; summing them would be meaningless.
     if (ID_HEADER.test(name) && distinctRatio >= 0.9 && values.every((v) => Number.isInteger(toNumber(v))))
       return 'id';

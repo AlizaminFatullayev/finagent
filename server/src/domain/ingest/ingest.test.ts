@@ -71,6 +71,8 @@ describe('xlsx parsing and schema inference', () => {
     expect(inferType('Balance', [1, 2, 3, 4, 5, 6, 7, 8, 9, 'n/a'])).toBe('currency');
     expect(inferType('Notes', [1, 'a', 'b', 'c'])).toBe('text');
     expect(inferType('Account No', ['0012', '0013', '0014'])).toBe('id');
+    // Repeated phone/card strings are still identifiers, not numbers.
+    expect(inferType('Phone', ['+994 55 760 20 78', '+994 55 760 20 78', '+994 50 111 22 33'])).toBe('id');
     const sheet = inferSheet({
       name: 'S',
       rows: [

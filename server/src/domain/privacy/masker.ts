@@ -3,6 +3,7 @@ import type { Cell } from '../ingest/values.js';
 import {
   FIN_HEADER,
   INLINE_PATTERNS,
+  isAzPhone,
   isFinShape,
   isValidCard,
   nameColumnCategory,
@@ -65,8 +66,14 @@ export class Masker {
   maskCell(value: Cell, column: ColumnSchema): Cell {
     if (value === null || typeof value === 'boolean') return value;
     // Amounts, rates and dates are analytical data, never identifiers.
-    if (column.type !== 'text' && column.type !== 'id') return value;
+    if (column.type === 'currency' || column.type === 'percent' || column.type === 'date') return value;
     const s = String(value).trim();
+    // Plain number columns are only checked for checksum-validated cards and phone formats, the
+    // two identifiers that type inference can mistake for numbers.
+    if (column.type === 'number') {
+      if (isValidCard(s)) return this.tokenFor('CARD', s);
+      return isAzPhone(s) ? this.tokenFor('PHONE', s) : value;
+    }
 
     if (FIN_HEADER.test(column.name) && isFinShape(s.toUpperCase()))
       return this.tokenFor('FIN', s.toUpperCase());
