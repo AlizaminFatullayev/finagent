@@ -1,0 +1,26 @@
+# Dependencies and build output
+node_modules/
+dist/
+coverage/
+
+# Secrets: only .env.example is committed
+.env
+.env.*
+!.env.example
+
+# Generated Prisma client (rebuilt by `prisma generate`)
+server/src/generated/
+
+# Uploaded files and local runtime data
+server/storage/
+storage/
+
+# Local tooling and editor artifacts
+.claude/
+CLAUDE.md
+.backup/
+.agents/
+.windsurf/
+skills-lock.json
+.DS_Store
+*.log

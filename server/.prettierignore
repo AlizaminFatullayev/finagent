@@ -1,0 +1,10 @@
+dist
+coverage
+src/generated
+storage
+package-lock.json
+prisma/migrations
+.agents
+.claude
+.windsurf
+skills-lock.json
