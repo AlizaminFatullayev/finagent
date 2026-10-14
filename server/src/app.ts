@@ -5,8 +5,12 @@ import { pinoHttp } from 'pino-http';
 import { env } from './config/env.js';
 import { logger } from './lib/logger.js';
 import { errorHandler, notFound } from './middleware/errorHandler.js';
+import { globalLimiter } from './middleware/rateLimit.js';
 import { requestId } from './middleware/requestId.js';
+import { auditRouter } from './modules/audit/routes.js';
+import { authRouter } from './modules/auth/routes.js';
 import { healthRouter } from './modules/health/routes.js';
+import { usersRouter } from './modules/users/routes.js';
 
 /** Builds the Express app without listening, so tests can drive it in-process with Supertest. */
 export function createApp() {
@@ -28,7 +32,13 @@ export function createApp() {
   // JSON bodies are small control messages; files go through multipart with their own limit.
   app.use(express.json({ limit: '100kb' }));
 
+  // Probes are mounted before the limiter so orchestrators can never be rate limited.
   app.use(healthRouter);
+  app.use(globalLimiter);
+
+  app.use('/api/auth', authRouter);
+  app.use('/api/users', usersRouter);
+  app.use('/api/audit-logs', auditRouter);
 
   app.use(notFound);
   app.use(errorHandler);
