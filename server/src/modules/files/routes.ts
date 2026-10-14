@@ -2,6 +2,7 @@ import { Router } from 'express';
 import multer from 'multer';
 import { z } from 'zod';
 import { env } from '../../config/env.js';
+import { AppError } from '../../lib/errors.js';
 import { bearer, envelope, errors, json, registry } from '../../lib/openapi.js';
 import { authenticate } from '../../middleware/auth.js';
 import { unmaskLimiter } from '../../middleware/rateLimit.js';
@@ -77,12 +78,25 @@ registry.registerPath({
   method: 'get',
   path: '/api/files/{id}/rows',
   tags: ['Files'],
-  summary: 'Page through the rows of a sheet (PII masked by default)',
+  summary: 'Page through the rows of a sheet (PII always masked)',
+  description:
+    'PII is replaced by tokens such as `[PERSON_3]`. Reveal specific tokens with POST /api/files/{id}/unmask. The former `unmask` query parameter returns 410.',
   security: bearer,
   request: { params: FileIdParams, query: RowsQuery },
-  responses: { 200: json(envelope(z.array(RowSchema), RowsMeta)), ...errors(401, 403, 404, 422) },
+  responses: { 200: json(envelope(z.array(RowSchema), RowsMeta)), ...errors(401, 404, 410, 422) },
 });
-filesRouter.get('/:id/rows', validate({ params: FileIdParams, query: RowsQuery }), controller.rows);
+filesRouter.get(
+  '/:id/rows',
+  // The old reveal flag is refused loudly, so a client cannot mistake masked rows for revealed ones.
+  (req, _res, next) =>
+    next(
+      'unmask' in req.query
+        ? new AppError(410, 'GONE', '`unmask` was removed; reveal tokens with POST /api/files/{id}/unmask')
+        : undefined,
+    ),
+  validate({ params: FileIdParams, query: RowsQuery }),
+  controller.rows,
+);
 
 registry.registerPath({
   method: 'post',

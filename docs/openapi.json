@@ -2310,7 +2310,8 @@
         "tags": [
           "Files"
         ],
-        "summary": "Page through the rows of a sheet (PII masked by default)",
+        "summary": "Page through the rows of a sheet (PII always masked)",
+        "description": "PII is replaced by tokens such as `[PERSON_3]`. Reveal specific tokens with POST /api/files/{id}/unmask. The former `unmask` query parameter returns 410.",
         "security": [
           {
             "bearerAuth": []
@@ -2361,21 +2362,6 @@
             "required": false,
             "name": "limit",
             "in": "query"
-          },
-          {
-            "schema": {
-              "type": "string",
-              "enum": [
-                "true",
-                "false"
-              ],
-              "default": "false",
-              "description": "Return original PII values (managers and admins only; audited as pii.unmask)"
-            },
-            "required": false,
-            "description": "Return original PII values (managers and admins only; audited as pii.unmask)",
-            "name": "unmask",
-            "in": "query"
           }
         ],
         "responses": {
@@ -2406,7 +2392,11 @@
                           ]
                         },
                         "masked": {
-                          "type": "boolean"
+                          "type": "boolean",
+                          "enum": [
+                            true
+                          ],
+                          "description": "Always true; reveal tokens with POST /api/files/{id}/unmask"
                         }
                       },
                       "required": [
@@ -2434,8 +2424,8 @@
               }
             }
           },
-          "403": {
-            "description": "Insufficient role or not the owner",
+          "404": {
+            "description": "Not found",
             "content": {
               "application/json": {
                 "schema": {
@@ -2444,8 +2434,8 @@
               }
             }
           },
-          "404": {
-            "description": "Not found",
+          "410": {
+            "description": "Gone",
             "content": {
               "application/json": {
                 "schema": {

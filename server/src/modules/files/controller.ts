@@ -23,7 +23,7 @@ export async function get(req: Request, res: Response) {
 
 export async function rows(req: Request, res: Response) {
   const query = req.query as unknown as RowsQuery;
-  const page = await filesService.getRows(currentUser(req), String(req.params.id), query, auditContext(req));
+  const page = await filesService.getRows(currentUser(req), String(req.params.id), query);
   send(res, page.items, {
     meta: { sheetId: page.sheetId, nextCursor: page.nextCursor, masked: page.masked },
   });

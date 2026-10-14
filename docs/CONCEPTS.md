@@ -12,11 +12,11 @@ Where each backend concept lives in this codebase. Paths are relative to `server
 | Validation | Zod schemas for body/query/params; all failures in one 422 with field details | `src/middleware/validate.ts`, `src/modules/*/schemas.ts`, `src/config/env.ts` |
 | Error handling | Typed `AppError` subclasses; library errors mapped in one place; unknown errors become an opaque 500 with a request id | `src/lib/errors.ts`, `src/middleware/errorHandler.ts` |
 | Authentication (AuthN) | Email + password login, short-lived access token, rotating refresh token, lockout after failed attempts | `src/modules/auth/service.ts`, `src/middleware/auth.ts` |
-| Authorization (AuthZ) | Role guard per route plus row-level ownership in services (analyst = own files, manager/admin = all) | `src/middleware/rbac.ts`, `src/modules/files/service.ts` (`visibleTo`) |
+| Authorization (AuthZ) | Role guard per route plus row-level ownership in services (analyst = own files, manager/admin = all); PII reveal additionally limited by `UNMASK_ALLOWED_ROLES` and audited with a reason | `src/middleware/rbac.ts`, `src/modules/files/service.ts` (`visibleTo`, `revealTokens`) |
 | JWT | HS256 access tokens with issuer, audience, expiry and an algorithm allowlist | `src/lib/jwt.ts` |
 | Hashing | Argon2id for passwords; SHA-256 for refresh tokens and file fingerprints; HMAC-SHA256 for webhook signatures; AES-256-GCM for the PII vault | `src/modules/users/service.ts`, `src/lib/crypto.ts` |
 | CORS | Origin allowlist from env, shared by REST and Socket.IO | `src/app.ts`, `src/realtime/socket.ts` |
-| Rate limiting | Redis-backed counters: global per IP, strict on `/api/auth/*`, per user on analysis creation | `src/middleware/rateLimit.ts` |
+| Rate limiting | Redis-backed counters: global per IP, strict on `/api/auth/*`, per user on analysis creation and on PII reveal | `src/middleware/rateLimit.ts` |
 | Env vars / config | Validated once at boot with Zod; fails fast with a readable list; refuses placeholder secrets in production | `src/config/env.ts`, `.env.example` (root) |
 | ORM | Prisma 7 with the `pg` driver adapter; typed queries, one client per process | `prisma/schema.prisma`, `src/lib/prisma.ts`, `prisma.config.ts` |
 | Schema | Models, enums and relations in one file | `prisma/schema.prisma` |

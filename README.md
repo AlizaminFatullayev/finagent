@@ -99,8 +99,12 @@ sequenceDiagram
 
 - **The LLM never sees raw PII.** Rows are masked with the file's token vault before statistics, anomaly
   detection and every agent tool run. Tokens are stable within a file, so duplicates and top payees still
-  show up. Original values are shown only through `GET /api/files/{id}/rows?unmask=true`, which is limited
-  to managers and admins and audited as `pii.unmask`.
+  show up. Rows, anomalies, summaries, reports and charts only ever carry tokens such as `[PERSON_3]`.
+- **One reveal path.** `POST /api/files/{id}/unmask` with `{ "tokens": [...], "reason": "..." }` returns
+  the original values of at most 50 tokens. It follows file visibility (analysts: own files) and
+  `UNMASK_ALLOWED_ROLES`, requires a 5-200 character reason, is rate limited per user
+  (`RATE_LIMIT_UNMASK_MAX` per 10 minutes), responds with `Cache-Control: no-store`, and is audited as
+  `pii.unmask` with the reason, token count and token types, never the values.
 - **Numbers come from code.** The model can only call read-only tools that return computed results, and
   its summary must pass a Zod schema. Cited numbers are cross-checked; unverified ones become caveats.
 - **Prompt-injection defence.** Cell content is wrapped in `<workbook_data>` delimiters (with any delimiter
@@ -170,7 +174,7 @@ docker compose up --build            # db, redis, one-off migrate job, api, work
 | Health | `GET /health`, `GET /ready` |
 | Auth | `POST /api/auth/login`, `POST /api/auth/refresh`, `POST /api/auth/logout`, `GET /api/auth/me` |
 | Users (admin) | `POST /api/users`, `GET /api/users`, `PATCH /api/users/{id}/role` |
-| Files | `POST /api/files`, `GET /api/files`, `GET /api/files/{id}`, `GET /api/files/{id}/rows`, `DELETE /api/files/{id}` |
+| Files | `POST /api/files`, `GET /api/files`, `GET /api/files/{id}`, `GET /api/files/{id}/rows`, `POST /api/files/{id}/unmask`, `DELETE /api/files/{id}` |
 | Analyses | `POST /api/files/{id}/analyses`, `GET /api/files/{id}/analyses`, `GET /api/analyses/{id}`, `GET /api/analyses/{id}/charts` |
 | Reports | `GET /api/analyses/{id}/export?format=xlsx\|pdf` |
 | Webhooks (admin) | `POST /api/webhooks`, `GET /api/webhooks`, `DELETE /api/webhooks/{id}` |
@@ -258,7 +262,9 @@ See [docs/CONCEPTS.md](docs/CONCEPTS.md) for a map of backend concepts to files 
   tables, at the cost of storage efficiency for very large files.
 - Date-times are treated as wall-clock time exactly as written in the sheet (Excel has no time zone).
 - Name detection relies on column headers; names inside free-text cells are not detected.
-- Analysis results and reports contain masked tokens; unmasking is available for rows only.
+- Analysis results, reports and charts contain masked tokens; the UI reveals them one request at a time
+  through `POST /api/files/{id}/unmask`. The vault is one sealed blob, so it is decrypted in memory for
+  each reveal, but only the requested values leave the server.
 - Upload deduplication checks before insert; two identical uploads at the same instant can both succeed.
 - Local disk storage is the only storage implementation; the `Storage` interface is ready for S3/R2.
 

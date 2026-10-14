@@ -37,6 +37,7 @@ const errorDescriptions: Record<number, string> = {
   403: 'Insufficient role or not the owner',
   404: 'Not found',
   409: 'Conflict',
+  410: 'Gone',
   413: 'Payload too large',
   422: 'Validation failed',
   429: 'Rate limit exceeded',

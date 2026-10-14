@@ -114,11 +114,8 @@ export async function getFile(user: Actor, fileId: string, ctx: AuditContext) {
   return file;
 }
 
-export async function getRows(user: Actor, fileId: string, query: RowsQuery, ctx: AuditContext) {
+export async function getRows(user: Actor, fileId: string, query: RowsQuery) {
   await findAccessibleFile(user, fileId);
-  // Seeing raw PII is a stronger right than seeing the file: analysts always get masked rows.
-  if (query.unmask && !canSeeAllFiles(user.role))
-    throw new ForbiddenError('Only managers and admins can unmask PII');
   const sheet = await prisma.sheet.findFirst({
     where: { fileId, ...(query.sheetId ? { id: query.sheetId } : {}) },
     orderBy: { position: 'asc' },
@@ -140,15 +137,7 @@ export async function getRows(user: Actor, fileId: string, query: RowsQuery, ctx
   }[];
   const nextCursor = hasMore ? (page.at(-1)?.rowIndex ?? null) : null;
 
-  if (query.unmask) {
-    await recordAudit(ctx, {
-      action: 'pii.unmask',
-      resourceType: 'file',
-      resourceId: fileId,
-      metadata: { sheetId: sheet.id, rows: page.length, fromRow: page[0]?.rowIndex ?? null },
-    });
-    return { sheetId: sheet.id, items: page, nextCursor, masked: false };
-  }
+  // Rows are always masked; POST /unmask is the single, audited way to see original values.
   // Masking happens on read from the stored vault, so the same value always shows the same token.
   const masker = Masker.fromTokens(await loadVault(fileId));
   return {

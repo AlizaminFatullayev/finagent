@@ -66,11 +66,6 @@ export const RowsQuery = z.object({
   sheetId: z.uuid().optional().meta({ description: 'Defaults to the first sheet' }),
   cursor: z.coerce.number().int().min(0).optional().meta({ description: 'rowIndex from `meta.nextCursor`' }),
   limit: z.coerce.number().int().min(1).max(500).default(100),
-  unmask: z
-    .enum(['true', 'false'])
-    .default('false')
-    .transform((v) => v === 'true')
-    .meta({ description: 'Return original PII values (managers and admins only; audited as pii.unmask)' }),
 });
 export type RowsQuery = z.infer<typeof RowsQuery>;
 
@@ -80,7 +75,9 @@ export const RowSchema = z
 export const RowsMeta = z.object({
   sheetId: z.uuid(),
   nextCursor: z.number().int().nullable(),
-  masked: z.boolean(),
+  masked: z
+    .literal(true)
+    .meta({ description: 'Always true; reveal tokens with POST /api/files/{id}/unmask' }),
 });
 
 // Same shape the masker emits, e.g. [PERSON_3]; anything else cannot be in the vault.

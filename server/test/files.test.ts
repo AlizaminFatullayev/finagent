@@ -112,7 +112,7 @@ describe('files', () => {
     expect(await prisma.auditLog.count({ where: { action: 'file.view', resourceId: id } })).toBe(1);
   });
 
-  it('masks PII in rows by default and lets only managers/admins unmask, with an audit entry', async () => {
+  it('always masks PII in rows and refuses the removed unmask flag (410)', async () => {
     const analyst = await userWithToken(app, 'ANALYST');
     const manager = await userWithToken(app, 'MANAGER');
     const { body } = await upload(analyst.auth, await messyWorkbook()).expect(202);
@@ -126,15 +126,13 @@ describe('files', () => {
     const vault = await prisma.maskingVault.findUniqueOrThrow({ where: { fileId: body.data.id } });
     expect(vault.encryptedMap).not.toContain('Aysel');
 
-    await request(app).get(`/api/files/${body.data.id}/rows?unmask=true`).set(analyst.auth).expect(403);
-    const raw = await request(app)
-      .get(`/api/files/${body.data.id}/rows?unmask=true`)
-      .set(manager.auth)
-      .expect(200);
-    expect(raw.body.meta.masked).toBe(false);
-    expect(raw.body.data[0].data.customer).toBe('Aysel Mammadova');
-    expect(await prisma.auditLog.count({ where: { action: 'pii.unmask', actorId: manager.user.id } })).toBe(
-      1,
-    );
+    for (const u of [analyst, manager]) {
+      const res = await request(app)
+        .get(`/api/files/${body.data.id}/rows?unmask=true`)
+        .set(u.auth)
+        .expect(410);
+      expect(res.body.error.message).toContain('POST /api/files/{id}/unmask');
+    }
+    expect(await prisma.auditLog.count({ where: { action: 'pii.unmask' } })).toBe(0);
   });
 });

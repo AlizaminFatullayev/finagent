@@ -4,7 +4,8 @@ import { buildSampleWorkbook } from './sampleWorkbook.js';
 
 /**
  * End-to-end check against a running API + worker: log in, upload the synthetic sample, wait
- * for ingest, run an analysis, download both report formats. Exits non-zero on any failure.
+ * for ingest, run an analysis, fetch its charts, reveal one masked token and download both report
+ * formats. Exits non-zero on any failure.
  * Use with LLM_PROVIDER=mock on the server to avoid LLM cost.
  */
 const rootEnv = new URL('../../.env', import.meta.url);
@@ -104,6 +105,33 @@ try {
       return true;
     }),
   );
+
+  await step('chart data', async () => {
+    const res = await api(`/api/analyses/${analysisId}/charts`, { token });
+    const { data } = (await res.json()) as { data: { charts: { id: string }[] } };
+    if (!data.charts.some((c) => c.id.startsWith('anomalies-by-type:'))) throw new Error('no anomaly chart');
+    console.log(`      ${data.charts.length} charts`);
+  });
+
+  await step('reveal a masked token', async () => {
+    const rows = await api(`/api/files/${fileId}/rows?limit=1`, { token });
+    const { data } = (await rows.json()) as { data: { data: Record<string, unknown> }[] };
+    const masked = Object.values(data[0]?.data ?? {}).find(
+      (v) => typeof v === 'string' && /^\[[A-Z]+_\d+\]$/.test(v),
+    );
+    if (typeof masked !== 'string') throw new Error('no masked token in the first row');
+    const res = await api(`/api/files/${fileId}/unmask`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ tokens: [masked], reason: 'Smoke test of the reveal flow' }),
+      token,
+    });
+    const { data: revealed } = (await res.json()) as { data: { values: Record<string, string> } };
+    if (!revealed.values[masked]) throw new Error(`${masked} was not revealed`);
+    if (res.headers.get('cache-control') !== 'no-store') throw new Error('missing Cache-Control: no-store');
+    // Only the token is printed; the revealed value never goes to the console.
+    console.log(`      ${masked} revealed`);
+  });
 
   for (const [format, magic] of [
     ['xlsx', 'PK'],
