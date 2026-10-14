@@ -26,6 +26,7 @@ instead (see the bottom of this file).
 | exceljs | 4.4.0 | 2023-10 | 18M | xlsx reader/writer plus an RFC 4180 CSV parser (fast-csv) in one package. Release cadence is slow, but the npm `xlsx` (SheetJS) package is stale and has open advisories, so exceljs remains the safer choice. Its streaming reader is not used: in 4.4.0 it drops sheets and sheet names depending on zip entry order and stream chunking (reproduced in this project). Its `uuid` dependency is pinned to a patched version via `overrides`. |
 | yauzl | 3.4.0 | 2026-06 | 54M | Reads the zip central directory to measure uncompressed size before parsing (zip-bomb guard). |
 | pdfkit | 0.20.2 | 2026-08 | 11M | PDF report generation with standard fonts and no headless browser. `pdfmake` was considered, but our tables are simple enough that its extra layer is not worth it. |
+| dejavu-fonts-ttf | 2.37.3 | 2022-06 | 200K | DejaVu Sans TTF for PDF reports: PDF standard fonts cannot render Azerbaijani letters (ə, ğ, ş, ı). Font files are static, so the old publish date is not a maintenance concern; license is the permissive Bitstream Vera/DejaVu license. |
 | @anthropic-ai/sdk | 0.133.0 | 2026-10 | 46M | Official client for the default LLM provider (tool use, retries, typed errors). |
 
 ## Development
