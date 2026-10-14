@@ -141,3 +141,33 @@ export async function buildSampleWorkbook(rows = 3_000): Promise<Buffer> {
 
   return Buffer.from(await wb.xlsx.writeBuffer());
 }
+
+const SENSITIVE_HEADERS = new Set(['Customer', 'FIN', 'IBAN', 'Card Number', 'Phone']);
+
+/**
+ * Every plaintext sensitive value in a workbook built by buildSampleWorkbook, read back from the
+ * file itself so leak checks stay in sync with the generator. Includes surnames on their own and
+ * whitespace-free forms, since a leak may not keep the original spacing.
+ */
+export async function sampleSensitiveValues(workbook: Buffer): Promise<string[]> {
+  const wb = new ExcelJS.Workbook();
+  await wb.xlsx.load(workbook as unknown as ArrayBuffer);
+  const values = new Set<string>();
+  wb.eachSheet((ws) => {
+    let headers: string[] | undefined;
+    ws.eachRow((row) => {
+      const cells = (row.values as unknown[]).slice(1).map((v) => (v == null ? '' : String(v)));
+      if (!headers) {
+        if (cells.some((c) => SENSITIVE_HEADERS.has(c))) headers = cells;
+        return;
+      }
+      cells.forEach((cell, i) => {
+        if (!cell || !SENSITIVE_HEADERS.has(headers![i]!)) return;
+        values.add(cell);
+        values.add(cell.replace(/\s/g, ''));
+        if (headers![i] === 'Customer') values.add(cell.split(' ').at(-1)!);
+      });
+    });
+  });
+  return [...values];
+}

@@ -1,4 +1,4 @@
-import { pino } from 'pino';
+import { pino, type DestinationStream, type LevelWithSilent } from 'pino';
 import { env } from '../config/env.js';
 
 // Anything that could carry a credential is redacted before it reaches log storage.
@@ -15,8 +15,12 @@ export const redactPaths = [
   '*.apiKey',
 ];
 
-export const logger = pino({
-  level: env.LOG_LEVEL,
-  redact: { paths: redactPaths, censor: '[REDACTED]' },
-  base: { service: 'finagent' },
-});
+/** The destination is injectable so tests can capture the real configuration's output in memory. */
+export function createLogger(level: LevelWithSilent = env.LOG_LEVEL, destination?: DestinationStream) {
+  return pino(
+    { level, redact: { paths: redactPaths, censor: '[REDACTED]' }, base: { service: 'finagent' } },
+    destination,
+  );
+}
+
+export const logger = createLogger();
