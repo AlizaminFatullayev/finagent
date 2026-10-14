@@ -13,7 +13,7 @@ server/src/generated/
 
 # Uploaded files and local runtime data
 server/storage/
-storage/
+/storage/
 
 # Local tooling and editor artifacts
 .claude/
