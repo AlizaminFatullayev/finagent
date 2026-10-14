@@ -171,7 +171,7 @@ docker compose up --build            # db, redis, one-off migrate job, api, work
 | Auth | `POST /api/auth/login`, `POST /api/auth/refresh`, `POST /api/auth/logout`, `GET /api/auth/me` |
 | Users (admin) | `POST /api/users`, `GET /api/users`, `PATCH /api/users/{id}/role` |
 | Files | `POST /api/files`, `GET /api/files`, `GET /api/files/{id}`, `GET /api/files/{id}/rows`, `DELETE /api/files/{id}` |
-| Analyses | `POST /api/files/{id}/analyses`, `GET /api/files/{id}/analyses`, `GET /api/analyses/{id}` |
+| Analyses | `POST /api/files/{id}/analyses`, `GET /api/files/{id}/analyses`, `GET /api/analyses/{id}`, `GET /api/analyses/{id}/charts` |
 | Reports | `GET /api/analyses/{id}/export?format=xlsx\|pdf` |
 | Webhooks (admin) | `POST /api/webhooks`, `GET /api/webhooks`, `DELETE /api/webhooks/{id}` |
 | Audit (admin) | `GET /api/audit-logs` |
@@ -195,6 +195,16 @@ An analysis is reused when the file content (SHA-256), request parameters, `ALGO
 provider/model and anomaly threshold are all identical. **Invalidation rule:** bump `ALGORITHM_VERSION` in
 `server/src/domain/analysis/engine.ts` whenever statistics or rules change; old cache keys then stop
 matching.
+
+### Chart data
+
+`GET /api/analyses/{id}/charts[?sheetId=]` returns ready-to-render `ChartSpec` objects (bar, line,
+histogram, pie) for a completed analysis (409 before that): anomalies by type and severity, a time series
+(day, week or month buckets chosen from the date range), histograms of up to three numeric columns, top
+values of up to two low-cardinality text columns, activity by hour and missing values per column. They are
+computed in code from masked rows (never by the LLM), so labels may be tokens such as `[PERSON_3]`. Every
+series has at most 200 points. Results are cached in Redis per analysis cache key and file; bump
+`CHARTS_VERSION` in `server/src/domain/analysis/charts.ts` to invalidate.
 
 ## Testing
 

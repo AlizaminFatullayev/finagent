@@ -26,7 +26,7 @@ Where each backend concept lives in this codebase. Paths are relative to `server
 | Transactions | Data change + audit entry commit together; ingest writes rows and READY status atomically | `src/modules/*/service.ts`, `src/queue/processors/ingest.ts` |
 | N+1 avoidance | File detail with sheets in one query (`select` with nested relation); analysis loads all rows in one query | `src/modules/files/service.ts` (`getFile`), `src/queue/processors/analyze.ts` |
 | Seeding | Idempotent demo users from env, refused in production | `prisma/seed.ts` |
-| Caching | Analysis results keyed by content hash + params + algorithm version + model, looked up in Redis then the DB | `src/modules/analyses/service.ts` (`computeCacheKey`) |
+| Caching | Analysis results keyed by content hash + params + algorithm version + model, looked up in Redis then the DB; chart specs cached in Redis per analysis cache key + `CHARTS_VERSION` | `src/modules/analyses/service.ts` (`computeCacheKey`, `getCharts`), `src/domain/analysis/charts.ts` |
 | Pagination | Keyset (cursor) pagination, newest first, `meta.nextCursor` | `src/lib/pagination.ts`, `src/modules/files/service.ts` (`getRows`) |
 | Queues / background jobs | BullMQ queues with retries, exponential backoff, progress; a separate worker process | `src/queue/queues.ts`, `src/queue/processors/`, `src/worker.ts` |
 | WebSocket | Socket.IO with JWT handshake and per-user rooms | `src/realtime/socket.ts` |

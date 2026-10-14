@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { SummarySchema } from '../../domain/agent/schemas.js';
+import { ChartSpecSchema } from '../../domain/analysis/charts.js';
 import { PageMeta, PaginationQuery } from '../../lib/pagination.js';
 
 export const CreateAnalysisBody = z.object({
@@ -63,6 +64,12 @@ export const AnalysisSchema = z
   .meta({ id: 'Analysis' });
 
 export const AnalysisListMeta = PageMeta;
+
+export const ChartsQuery = z.object({
+  sheetId: z.uuid().optional().meta({ description: 'Only charts of this sheet; defaults to every sheet' }),
+});
+export type ChartsQuery = z.infer<typeof ChartsQuery>;
+export const ChartsSchema = z.object({ charts: z.array(ChartSpecSchema) });
 
 // cacheKey is an internal implementation detail and is not exposed.
 export const analysisSelect = {

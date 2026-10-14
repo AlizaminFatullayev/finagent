@@ -3,6 +3,7 @@ import { send } from '../../lib/http.js';
 import type { PaginationQuery } from '../../lib/pagination.js';
 import { currentUser } from '../../middleware/rbac.js';
 import { auditContext } from '../audit/service.js';
+import type { ChartsQuery } from './schemas.js';
 import * as analysesService from './service.js';
 
 export async function create(req: Request, res: Response) {
@@ -27,4 +28,15 @@ export async function listForFile(req: Request, res: Response) {
     req.query as unknown as PaginationQuery,
   );
   send(res, page.items, { meta: { nextCursor: page.nextCursor } });
+}
+
+export async function charts(req: Request, res: Response) {
+  send(
+    res,
+    await analysesService.getCharts(
+      currentUser(req),
+      String(req.params.id),
+      req.query as unknown as ChartsQuery,
+    ),
+  );
 }

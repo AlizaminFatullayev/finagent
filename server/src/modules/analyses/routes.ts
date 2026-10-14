@@ -10,6 +10,8 @@ import {
   AnalysisIdParams,
   AnalysisListMeta,
   AnalysisSchema,
+  ChartsQuery,
+  ChartsSchema,
   CreateAnalysisBody,
   ListAnalysesQuery,
 } from './schemas.js';
@@ -71,3 +73,24 @@ registry.registerPath({
   responses: { 200: json(envelope(AnalysisSchema)), ...errors(401, 404, 422) },
 });
 analysesRouter.get('/:id', validate({ params: AnalysisIdParams }), controller.get);
+
+registry.registerPath({
+  method: 'get',
+  path: '/api/analyses/{id}/charts',
+  tags: ['Analyses'],
+  summary: 'Ready-to-render chart specs for a completed analysis',
+  description:
+    'Computed deterministically in code from the stored rows (never by the LLM): anomalies by type and severity, a time series, ' +
+    'histograms of up to 3 numeric columns, top values of up to 2 low-cardinality text columns, activity by hour and missing values per column. ' +
+    'Charts whose columns are missing are skipped. Labels come from masked data, so they may be tokens such as `[PERSON_3]` ' +
+    '(reveal with POST /api/files/{id}/unmask). Every series has at most 200 points (`meta.truncated` keeps the latest 200). ' +
+    'Titles follow the analysis language. Cached per content and chart version.',
+  security: bearer,
+  request: { params: AnalysisIdParams, query: ChartsQuery },
+  responses: { 200: json(envelope(ChartsSchema)), ...errors(401, 404, 409, 422) },
+});
+analysesRouter.get(
+  '/:id/charts',
+  validate({ params: AnalysisIdParams, query: ChartsQuery }),
+  controller.charts,
+);

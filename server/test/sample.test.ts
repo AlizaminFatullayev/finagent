@@ -44,5 +44,26 @@ describe('synthetic sample workbook end to end', () => {
     );
     for (const type of ['outlier', 'structuring', 'off_hours_burst', 'exact_duplicate'])
       expect(found).toContain(type);
+
+    // Every chart type is produced, and the planted anomalies appear in the anomaly chart.
+    const res = await request(app).get(`/api/analyses/${created.body.data.id}/charts`).set(auth).expect(200);
+    type Chart = { id: string; type: string; series: { points: { x: string | number; y: number }[] }[] };
+    const charts = res.body.data.charts as Chart[];
+    const ids = charts.map((c) => c.id);
+    for (const prefix of [
+      'anomalies-by-type:0',
+      'anomalies-by-severity:0',
+      'time-series:0:date',
+      'histogram:0:amount_azn',
+      'top-values:0:',
+      'hourly:0:date',
+      'data-quality:0',
+    ])
+      expect(ids.some((id) => id.startsWith(prefix))).toBe(true);
+    const byType = charts.find((c) => c.id === 'anomalies-by-type:0')!.series[0]!.points.map((p) => p.x);
+    for (const type of ['outlier', 'structuring', 'off_hours_burst', 'exact_duplicate'])
+      expect(byType).toContain(type);
+    expect(charts.find((c) => c.id === 'hourly:0:date')!.series[0]!.points[2]!.y).toBeGreaterThanOrEqual(8);
+    for (const c of charts) for (const s of c.series) expect(s.points.length).toBeLessThanOrEqual(200);
   }, 120_000);
 });
