@@ -1,0 +1,53 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  server:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: server
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: finagent
+          POSTGRES_PASSWORD: finagent
+          POSTGRES_DB: finagent_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U finagent" --health-interval 5s --health-timeout 3s --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports: ['6379:6379']
+        options: >-
+          --health-cmd "redis-cli ping" --health-interval 5s --health-timeout 3s --health-retries 10
+    env:
+      TEST_DATABASE_URL: postgresql://finagent:finagent@localhost:5432/finagent_test?schema=public
+      TEST_REDIS_URL: redis://localhost:6379/15
+      SCARF_ANALYTICS: 'false'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm run format:check
+      - run: npm run test:unit
+      # The real LLM is never called: tests pin LLM_PROVIDER=mock (see test/testEnv.ts).
+      - run: npm run test:integration
+      - run: npm run build
+      - name: Docker build
+        run: docker build --target runtime -t finagent-server:ci .

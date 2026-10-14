@@ -2,8 +2,10 @@ import cors from 'cors';
 import express from 'express';
 import helmet from 'helmet';
 import { pinoHttp } from 'pino-http';
+import swaggerUi from 'swagger-ui-express';
 import { env } from './config/env.js';
 import { logger } from './lib/logger.js';
+import { generateOpenApiDocument } from './lib/openapi.js';
 import { errorHandler, notFound } from './middleware/errorHandler.js';
 import { globalLimiter } from './middleware/rateLimit.js';
 import { requestId } from './middleware/requestId.js';
@@ -48,6 +50,11 @@ export function createApp() {
   app.use('/api/analyses', reportsRouter);
   app.use('/api/analyses', analysesRouter);
   app.use('/api/webhooks', webhooksRouter);
+
+  // Routers above registered their contracts at import time, so the document is complete here.
+  const openapi = generateOpenApiDocument();
+  app.get('/docs/openapi.json', (_req, res) => res.json(openapi));
+  app.use('/docs', swaggerUi.serve, swaggerUi.setup(openapi));
 
   app.use(notFound);
   app.use(errorHandler);

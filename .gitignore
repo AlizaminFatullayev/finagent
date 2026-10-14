@@ -24,3 +24,6 @@ CLAUDE.md
 skills-lock.json
 .DS_Store
 *.log
+
+# Generated synthetic sample workbooks
+server/samples/

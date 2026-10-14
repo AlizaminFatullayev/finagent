@@ -35,39 +35,56 @@ services:
       timeout: 3s
       retries: 10
 
+  # Applies pending migrations, then exits; the API starts only after it succeeded.
+  migrate:
+    build:
+      context: ./server
+      target: migrate
+    environment:
+      DATABASE_URL: postgresql://finagent:finagent@db:5432/finagent?schema=public
+    depends_on:
+      db:
+        condition: service_healthy
+
   api:
-    build: ./server
+    build:
+      context: ./server
+      target: runtime
     env_file: .env
     environment:
       # Inside the compose network the services are reached by name, not localhost.
       DATABASE_URL: postgresql://finagent:finagent@db:5432/finagent?schema=public
       REDIS_URL: redis://redis:6379
       STORAGE_DIR: /app/storage
-    command: ['sh', '-c', 'npx prisma migrate deploy && node dist/server.js']
     ports:
       - '${API_HOST_PORT:-3000}:3000'
     volumes:
       - uploads:/app/storage
     depends_on:
-      db:
-        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
       redis:
         condition: service_healthy
 
   worker:
-    build: ./server
+    build:
+      context: ./server
+      target: runtime
     env_file: .env
     environment:
       DATABASE_URL: postgresql://finagent:finagent@db:5432/finagent?schema=public
       REDIS_URL: redis://redis:6379
       STORAGE_DIR: /app/storage
     command: ['node', 'dist/worker.js']
+    # The worker has no HTTP port, so the image's HTTP healthcheck does not apply.
+    healthcheck:
+      disable: true
     # The worker reads uploaded files written by the API, so both mount the same volume.
     volumes:
       - uploads:/app/storage
     depends_on:
-      db:
-        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
       redis:
         condition: service_healthy
 

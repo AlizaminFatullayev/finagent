@@ -1,0 +1,13 @@
+node_modules
+dist
+coverage
+storage
+samples
+src/generated
+.agents
+.claude
+.windsurf
+skills-lock.json
+**/*.test.ts
+test
+.env*
