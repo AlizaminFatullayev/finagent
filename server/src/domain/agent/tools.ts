@@ -13,13 +13,30 @@ const SheetColumnInput = z.object({ sheet: z.string(), column: z.string() });
 
 type Tool = { definition: ToolDefinition; run: (input: unknown, ctx: AgentContext) => unknown };
 
+/**
+ * Providers require a flat `type: "object"` input schema. Ids registered with `.meta({ id })` (used
+ * for OpenAPI components) would otherwise turn the top level into a `$ref`, so an empty registry is
+ * used, descriptions are copied back from the global one, and cycles throw instead of emitting `$ref`.
+ */
+export function toInputSchema(schema: z.ZodType): Record<string, unknown> {
+  const { $schema: _, ...json } = z.toJSONSchema(schema, {
+    metadata: z.registry(),
+    cycles: 'throw',
+    override: ({ zodSchema, jsonSchema }) => {
+      const description = z.globalRegistry.get(zodSchema)?.description;
+      if (description) jsonSchema.description = description;
+    },
+  });
+  return json;
+}
+
 const define = (
   name: string,
   description: string,
   schema: z.ZodType,
   run: (input: never, ctx: AgentContext) => unknown,
 ): Tool => ({
-  definition: { name, description, inputSchema: z.toJSONSchema(schema) as Record<string, unknown> },
+  definition: { name, description, inputSchema: toInputSchema(schema) },
   // Inputs come from the model, so they are validated like any other untrusted request.
   run: (input, ctx) => run(schema.parse(input) as never, ctx),
 });
@@ -97,7 +114,7 @@ export const READ_TOOLS: Tool[] = [
 export const SUBMIT_TOOL: ToolDefinition = {
   name: 'submit_summary',
   description: 'Submit the final structured summary. Call exactly once, when done.',
-  inputSchema: z.toJSONSchema(SummarySchema) as Record<string, unknown>,
+  inputSchema: toInputSchema(SummarySchema),
 };
 
 /**
