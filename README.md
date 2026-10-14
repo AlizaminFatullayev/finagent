@@ -234,6 +234,22 @@ Integration tests use the separate `finagent_test` database and Redis DB 15, and
 that is not local. Tests always use the mock LLM provider; the real API is never called. CI runs the same
 steps plus a production build and a Docker build.
 
+### Opt-in live LLM test
+
+`npm run test:live-llm` runs the real Anthropic provider once over the **synthetic sample workbook** and
+checks that the agent finishes within `AGENT_MAX_ITERATIONS`, the summary passes its schema, token usage
+and number verification are stored, and that no sensitive value from the sample appears in any outbound
+request body (only masked tokens). A refusal or provider error must end in the documented `FAILED` state.
+It prints a short report but never the key or the payloads, and it is not part of `npm test` or CI.
+
+```bash
+cd server
+LIVE_LLM_TEST=1 ANTHROPIC_API_KEY=<your key> npm run test:live-llm   # docker compose db + redis must run
+```
+
+> **Use only the synthetic sample.** This test sends data to an external API and costs tokens. Never point
+> it at real customer workbooks. Without `LIVE_LLM_TEST=1` and a key it is skipped.
+
 ## Project structure
 
 ```

@@ -2,7 +2,14 @@ import Anthropic from '@anthropic-ai/sdk';
 import { LLMError, LLMRefusalError, LLMTimeoutError } from './errors.js';
 import type { ChatMessage, CompletionOptions, LLMProvider, LLMResponse, ToolDefinition } from './types.js';
 
-type Config = { apiKey: string; model: string; timeoutMs: number; maxRetries: number };
+type Config = {
+  apiKey: string;
+  model: string;
+  timeoutMs: number;
+  maxRetries: number;
+  /** Lets the opt-in live test inspect every outbound request; production uses the global fetch. */
+  fetch?: typeof fetch;
+};
 
 /** Maps SDK errors to safe AppErrors; the SDK has already retried 408/409/429/5xx with backoff. */
 function toAppError(err: unknown): unknown {
@@ -46,6 +53,7 @@ export class AnthropicProvider implements LLMProvider {
       apiKey: config.apiKey,
       timeout: config.timeoutMs,
       maxRetries: config.maxRetries,
+      fetch: config.fetch,
     });
   }
 

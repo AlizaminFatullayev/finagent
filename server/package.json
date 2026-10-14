@@ -22,7 +22,8 @@
     "openapi:export": "tsx scripts/export-openapi.ts",
     "sample:xlsx": "tsx scripts/generate-sample-xlsx.ts",
     "smoke": "tsx scripts/smoke.ts",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "test:live-llm": "vitest run --config vitest.live.config.ts"
   },
   "type": "module",
   "private": "true",
