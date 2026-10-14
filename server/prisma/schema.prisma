@@ -1,13 +1,222 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Get a free hosted Postgres database in seconds: `npx create-db`
+// FinAgent data model. Every foreign key and every list query path has an index.
 
 generator client {
-  provider = "prisma-client"
-  output   = "../src/generated/prisma"
+  provider            = "prisma-client"
+  output              = "../src/generated/prisma"
+  moduleFormat        = "esm"
+  importFileExtension = "js"
 }
 
 datasource db {
   provider = "postgresql"
+}
+
+enum Role {
+  ANALYST
+  MANAGER
+  ADMIN
+}
+
+enum FileStatus {
+  UPLOADED
+  PROCESSING
+  READY
+  FAILED
+}
+
+enum AnalysisStatus {
+  QUEUED
+  RUNNING
+  COMPLETED
+  FAILED
+}
+
+enum DeliveryStatus {
+  PENDING
+  SUCCESS
+  FAILED
+}
+
+model User {
+  id               String    @id @default(uuid()) @db.Uuid
+  email            String    @unique
+  name             String
+  passwordHash     String
+  role             Role      @default(ANALYST)
+  isActive         Boolean   @default(true)
+  // Lockout state lives on the row so it survives restarts and is shared by all API replicas.
+  failedLoginCount Int       @default(0)
+  lockedUntil      DateTime?
+  lastLoginAt      DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  refreshTokens RefreshToken[]
+  files         File[]
+  analyses      Analysis[]
+  auditLogs     AuditLog[]
+  webhooks      Webhook[]
+
+  @@index([createdAt, id])
+}
+
+model RefreshToken {
+  id         String    @id @default(uuid()) @db.Uuid
+  userId     String    @db.Uuid
+  // Only a SHA-256 of the opaque token is stored, so a DB leak does not leak live sessions.
+  tokenHash  String    @unique
+  // All rotations of one login share a family; reuse of a rotated token revokes the whole family.
+  familyId   String    @db.Uuid
+  expiresAt  DateTime
+  revokedAt  DateTime?
+  createdAt  DateTime  @default(now())
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([familyId])
+}
+
+model File {
+  id           String     @id @default(uuid()) @db.Uuid
+  ownerId      String     @db.Uuid
+  originalName String
+  // Stored under a random name so user input never reaches the filesystem path.
+  storedName   String     @unique
+  mimeType     String
+  sizeBytes    Int
+  sha256       String
+  status       FileStatus @default(UPLOADED)
+  errorMessage String?
+  deletedAt    DateTime?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  owner        User          @relation(fields: [ownerId], references: [id], onDelete: Restrict)
+  sheets       Sheet[]
+  analyses     Analysis[]
+  maskingVault MaskingVault?
+
+  @@index([ownerId, createdAt])
+  @@index([ownerId, sha256])
+  @@index([createdAt, id])
+}
+
+model Sheet {
+  id        String   @id @default(uuid()) @db.Uuid
+  fileId    String   @db.Uuid
+  name      String
+  position  Int
+  // 1-based worksheet row that holds the detected header.
+  headerRow Int
+  rowCount  Int
+  // Inferred column schema: [{ key, name, type, nullRatio, distinctCount }]
+  columns   Json
+  createdAt DateTime @default(now())
+
+  file File      @relation(fields: [fileId], references: [id], onDelete: Cascade)
+  rows DataRow[]
+
+  @@index([fileId, position])
+}
+
+model DataRow {
+  id       BigInt @id @default(autoincrement())
+  sheetId  String @db.Uuid
+  rowIndex Int
+  // Raw cell values keyed by column key. Masking is applied on read, never stored.
+  data     Json
+
+  sheet Sheet @relation(fields: [sheetId], references: [id], onDelete: Cascade)
+
+  @@unique([sheetId, rowIndex])
+}
+
+model Analysis {
+  id            String         @id @default(uuid()) @db.Uuid
+  fileId        String         @db.Uuid
+  requestedById String         @db.Uuid
+  status        AnalysisStatus @default(QUEUED)
+  params        Json
+  language      String
+  result        Json?
+  verification  Json?
+  cacheKey      String
+  cached        Boolean        @default(false)
+  model         String?
+  tokenUsage    Json?
+  error         String?
+  createdAt     DateTime       @default(now())
+  startedAt     DateTime?
+  completedAt   DateTime?
+
+  file        File @relation(fields: [fileId], references: [id], onDelete: Cascade)
+  requestedBy User @relation(fields: [requestedById], references: [id], onDelete: Restrict)
+
+  @@index([fileId, createdAt])
+  @@index([requestedById])
+  @@index([cacheKey, status])
+}
+
+model MaskingVault {
+  id           String   @id @default(uuid()) @db.Uuid
+  fileId       String   @unique @db.Uuid
+  // AES-256-GCM sealed JSON map token -> original value (iv.tag.ciphertext, base64).
+  encryptedMap String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  file File @relation(fields: [fileId], references: [id], onDelete: Cascade)
+}
+
+model AuditLog {
+  id           String   @id @default(uuid()) @db.Uuid
+  // Null for events without a known actor, e.g. a failed login for an unknown email.
+  actorId      String?  @db.Uuid
+  action       String
+  resourceType String?
+  resourceId   String?
+  ip           String?
+  userAgent    String?
+  metadata     Json?
+  createdAt    DateTime @default(now())
+
+  actor User? @relation(fields: [actorId], references: [id], onDelete: Restrict)
+
+  @@index([createdAt, id])
+  @@index([actorId, createdAt])
+  @@index([action, createdAt])
+}
+
+model Webhook {
+  id              String   @id @default(uuid()) @db.Uuid
+  url             String
+  // Signing secret sealed with the masking key; it must be recoverable to sign payloads.
+  secretEncrypted String
+  events          String[]
+  isActive        Boolean  @default(true)
+  createdById     String   @db.Uuid
+  createdAt       DateTime @default(now())
+
+  createdBy  User              @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  deliveries WebhookDelivery[]
+
+  @@index([createdById])
+  @@index([createdAt, id])
+}
+
+model WebhookDelivery {
+  id             String         @id @default(uuid()) @db.Uuid
+  webhookId      String         @db.Uuid
+  event          String
+  payload        Json
+  status         DeliveryStatus @default(PENDING)
+  attempts       Int            @default(0)
+  responseStatus Int?
+  error          String?
+  createdAt      DateTime       @default(now())
+  deliveredAt    DateTime?
+
+  webhook Webhook @relation(fields: [webhookId], references: [id], onDelete: Cascade)
+
+  @@index([webhookId, createdAt])
 }

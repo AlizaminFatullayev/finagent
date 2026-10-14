@@ -12,6 +12,9 @@ const schema = z
   .object({
     NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
     PORT: int(3000),
+    // Number of reverse proxies in front of the API; 0 means client IPs come from the socket, which
+    // stops callers from spoofing X-Forwarded-For to dodge rate limits.
+    TRUST_PROXY: z.coerce.number().int().min(0).default(0),
     LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
 
     DATABASE_URL: z.url(),

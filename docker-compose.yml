@@ -1,0 +1,77 @@
+# Local stack. Day-to-day development: `docker compose up -d db redis` and `npm run dev` in server/.
+# Full stack (API + worker in containers): `docker compose up --build`.
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: finagent
+      POSTGRES_PASSWORD: finagent
+      POSTGRES_DB: finagent
+    ports:
+      # Host port is overridable so the stack can coexist with a natively installed Postgres.
+      - '${DB_HOST_PORT:-5432}:5432'
+    volumes:
+      - db-data:/var/lib/postgresql/data
+      # Creates the separate finagent_test database used by integration tests.
+      - ./server/docker/initdb:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U finagent']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    # AOF persistence so queued jobs survive a Redis restart; noeviction because BullMQ must never lose keys.
+    command: ['redis-server', '--appendonly', 'yes', '--maxmemory-policy', 'noeviction']
+    ports:
+      - '${REDIS_HOST_PORT:-6379}:6379'
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    build: ./server
+    env_file: .env
+    environment:
+      # Inside the compose network the services are reached by name, not localhost.
+      DATABASE_URL: postgresql://finagent:finagent@db:5432/finagent?schema=public
+      REDIS_URL: redis://redis:6379
+      STORAGE_DIR: /app/storage
+    command: ['sh', '-c', 'npx prisma migrate deploy && node dist/server.js']
+    ports:
+      - '${API_HOST_PORT:-3000}:3000'
+    volumes:
+      - uploads:/app/storage
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  worker:
+    build: ./server
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://finagent:finagent@db:5432/finagent?schema=public
+      REDIS_URL: redis://redis:6379
+      STORAGE_DIR: /app/storage
+    command: ['node', 'dist/worker.js']
+    # The worker reads uploaded files written by the API, so both mount the same volume.
+    volumes:
+      - uploads:/app/storage
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+volumes:
+  db-data:
+  redis-data:
+  uploads:
