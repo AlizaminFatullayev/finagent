@@ -41,3 +41,10 @@ export const analysisLimiter = createLimiter('analysis', {
   limit: env.RATE_LIMIT_ANALYSIS_MAX,
   keyGenerator: (req) => req.user?.id ?? 'anonymous',
 });
+
+// Every reveal exposes customer PII, so it gets a small per-user budget regardless of role.
+export const unmaskLimiter = createLimiter('unmask', {
+  windowMs: 10 * 60 * 1000,
+  limit: env.RATE_LIMIT_UNMASK_MAX,
+  keyGenerator: (req) => req.user?.id ?? 'anonymous',
+});

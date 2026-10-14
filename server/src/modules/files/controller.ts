@@ -29,6 +29,18 @@ export async function rows(req: Request, res: Response) {
   });
 }
 
+export async function unmask(req: Request, res: Response) {
+  const result = await filesService.revealTokens(
+    currentUser(req),
+    String(req.params.id),
+    req.body,
+    auditContext(req),
+  );
+  // Revealed PII must not linger in browser or proxy caches.
+  res.set('Cache-Control', 'no-store');
+  send(res, result);
+}
+
 export async function remove(req: Request, res: Response) {
   await filesService.deleteFile(currentUser(req), String(req.params.id), auditContext(req));
   send(res, { deleted: true });

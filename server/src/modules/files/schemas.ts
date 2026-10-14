@@ -83,6 +83,40 @@ export const RowsMeta = z.object({
   masked: z.boolean(),
 });
 
+// Same shape the masker emits, e.g. [PERSON_3]; anything else cannot be in the vault.
+const MaskToken = z
+  .string()
+  .max(40)
+  .regex(/^\[[A-Z]+_\d+\]$/, 'must be a mask token such as [PERSON_3]');
+
+export const UnmaskBody = z.object({
+  tokens: z
+    .array(MaskToken)
+    .min(1)
+    .max(50)
+    .transform((tokens) => [...new Set(tokens)])
+    .meta({
+      description: 'Tokens to reveal (1-50, duplicates ignored)',
+      example: ['[PERSON_3]', '[IBAN_1]'],
+    }),
+  reason: z
+    .string()
+    .trim()
+    .min(5)
+    .max(200)
+    .meta({ description: 'Why the original values are needed; stored in the audit log' }),
+});
+export type UnmaskBody = z.infer<typeof UnmaskBody>;
+
+export const UnmaskResultSchema = z
+  .object({
+    values: z
+      .record(z.string(), z.string())
+      .meta({ description: 'token -> original value', example: { '[PERSON_3]': 'Aysel Mammadova' } }),
+    notFound: z.array(z.string()).meta({ description: 'Requested tokens that this file does not contain' }),
+  })
+  .meta({ id: 'UnmaskResult' });
+
 // Never expose storedName: it is an internal storage key.
 export const fileSelect = {
   id: true,

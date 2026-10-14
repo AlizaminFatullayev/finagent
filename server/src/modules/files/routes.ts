@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { env } from '../../config/env.js';
 import { bearer, envelope, errors, json, registry } from '../../lib/openapi.js';
 import { authenticate } from '../../middleware/auth.js';
+import { unmaskLimiter } from '../../middleware/rateLimit.js';
 import { validate } from '../../middleware/validate.js';
 import * as controller from './controller.js';
 import {
@@ -15,6 +16,8 @@ import {
   RowSchema,
   RowsMeta,
   RowsQuery,
+  UnmaskBody,
+  UnmaskResultSchema,
   UploadBody,
   UploadMeta,
 } from './schemas.js';
@@ -80,6 +83,29 @@ registry.registerPath({
   responses: { 200: json(envelope(z.array(RowSchema), RowsMeta)), ...errors(401, 403, 404, 422) },
 });
 filesRouter.get('/:id/rows', validate({ params: FileIdParams, query: RowsQuery }), controller.rows);
+
+registry.registerPath({
+  method: 'post',
+  path: '/api/files/{id}/unmask',
+  tags: ['Files'],
+  summary: 'Reveal the original values behind masked PII tokens',
+  description:
+    'The only way to see raw PII. Rows, anomalies, summaries and charts carry tokens such as `[PERSON_3]`; send the ones to reveal with a justification. ' +
+    'Same file visibility as GET /api/files/{id} (analysts: own files), further limited to the roles in `UNMASK_ALLOWED_ROLES`. ' +
+    'Audited as pii.unmask with the reason, token count and token types (never the values); rate limited per user; responses are `Cache-Control: no-store`.',
+  security: bearer,
+  request: {
+    params: FileIdParams,
+    body: { content: { 'application/json': { schema: UnmaskBody } } },
+  },
+  responses: { 200: json(envelope(UnmaskResultSchema)), ...errors(401, 403, 404, 422, 429) },
+});
+filesRouter.post(
+  '/:id/unmask',
+  unmaskLimiter,
+  validate({ params: FileIdParams, body: UnmaskBody }),
+  controller.unmask,
+);
 
 registry.registerPath({
   method: 'delete',

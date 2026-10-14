@@ -60,6 +60,19 @@ const schema = z
     RATE_LIMIT_GLOBAL_MAX: int(300),
     RATE_LIMIT_AUTH_MAX: int(20),
     RATE_LIMIT_ANALYSIS_MAX: int(30),
+    RATE_LIMIT_UNMASK_MAX: int(30),
+
+    // Roles allowed to reveal masked PII (always limited to files they can already see). Empty disables reveal.
+    UNMASK_ALLOWED_ROLES: z
+      .string()
+      .default('ANALYST,MANAGER,ADMIN')
+      .transform((v) =>
+        v
+          .split(',')
+          .map((s) => s.trim())
+          .filter(Boolean),
+      )
+      .pipe(z.array(z.enum(['ANALYST', 'MANAGER', 'ADMIN']))),
 
     QUEUE_CONCURRENCY_INGEST: int(2),
     QUEUE_CONCURRENCY_ANALYZE: int(2),

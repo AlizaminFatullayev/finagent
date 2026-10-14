@@ -14,7 +14,7 @@ import { canSeeAllFiles } from '../../middleware/rbac.js';
 import { ingestQueue } from '../../queue/queues.js';
 import { storage } from '../../storage/storage.js';
 import { recordAudit, type AuditContext } from '../audit/service.js';
-import { fileSelect, type RowsQuery } from './schemas.js';
+import { fileSelect, type RowsQuery, type UnmaskBody } from './schemas.js';
 
 type Actor = { id: string; role: 'ANALYST' | 'MANAGER' | 'ADMIN' };
 
@@ -157,6 +157,37 @@ export async function getRows(user: Actor, fileId: string, query: RowsQuery, ctx
     nextCursor,
     masked: true,
   };
+}
+
+/**
+ * Reveals the original values behind specific tokens. The vault is one sealed blob, so it is
+ * decrypted in memory, but only the requested entries leave this function.
+ */
+export async function revealTokens(user: Actor, fileId: string, body: UnmaskBody, ctx: AuditContext) {
+  if (!env.UNMASK_ALLOWED_ROLES.includes(user.role))
+    throw new ForbiddenError('Your role is not allowed to reveal PII');
+  await findAccessibleFile(user, fileId);
+
+  const vault = await loadVault(fileId);
+  const values: Record<string, string> = {};
+  const notFound: string[] = [];
+  for (const token of body.tokens) {
+    if (Object.hasOwn(vault, token)) values[token] = vault[token]!;
+    else notFound.push(token);
+  }
+  // Audit before responding, so no value is ever revealed without a record. Values themselves are never stored.
+  await recordAudit(ctx, {
+    action: 'pii.unmask',
+    resourceType: 'file',
+    resourceId: fileId,
+    metadata: {
+      reason: body.reason,
+      tokenCount: body.tokens.length,
+      tokenTypes: [...new Set(body.tokens.map((t) => t.slice(1, t.lastIndexOf('_'))))].sort(),
+      notFoundCount: notFound.length,
+    },
+  });
+  return { values, notFound };
 }
 
 export async function deleteFile(user: Actor, fileId: string, ctx: AuditContext) {

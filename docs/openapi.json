@@ -766,6 +766,32 @@
           "data"
         ]
       },
+      "UnmaskResult": {
+        "type": "object",
+        "properties": {
+          "values": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "token -> original value",
+            "example": {
+              "[PERSON_3]": "Aysel Mammadova"
+            }
+          },
+          "notFound": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Requested tokens that this file does not contain"
+          }
+        },
+        "required": [
+          "values",
+          "notFound"
+        ]
+      },
       "CreatedWebhook": {
         "type": "object",
         "properties": {
@@ -2214,6 +2240,142 @@
           },
           "422": {
             "description": "Validation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/files/{id}/unmask": {
+      "post": {
+        "tags": [
+          "Files"
+        ],
+        "summary": "Reveal the original values behind masked PII tokens",
+        "description": "The only way to see raw PII. Rows, anomalies, summaries and charts carry tokens such as `[PERSON_3]`; send the ones to reveal with a justification. Same file visibility as GET /api/files/{id} (analysts: own files), further limited to the roles in `UNMASK_ALLOWED_ROLES`. Audited as pii.unmask with the reason, token count and token types (never the values); rate limited per user; responses are `Cache-Control: no-store`.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "tokens": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "maxLength": 40,
+                      "pattern": "^\\[[A-Z]+_\\d+\\]$"
+                    },
+                    "minItems": 1,
+                    "maxItems": 50,
+                    "description": "Tokens to reveal (1-50, duplicates ignored)",
+                    "example": [
+                      "[PERSON_3]",
+                      "[IBAN_1]"
+                    ]
+                  },
+                  "reason": {
+                    "type": "string",
+                    "minLength": 5,
+                    "maxLength": 200,
+                    "description": "Why the original values are needed; stored in the audit log"
+                  }
+                },
+                "required": [
+                  "tokens",
+                  "reason"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/UnmaskResult"
+                    },
+                    "meta": {
+                      "type": "object",
+                      "properties": {}
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "meta"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid access token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Insufficient role or not the owner",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
             "content": {
               "application/json": {
                 "schema": {
