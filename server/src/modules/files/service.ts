@@ -78,7 +78,7 @@ export async function uploadFile(user: Actor, upload: Express.Multer.File | unde
       return created;
     });
     // jobId = fileId makes a duplicate enqueue (e.g. client retry) a no-op in BullMQ.
-    await ingestQueue.add('ingest', { fileId: file.id }, { jobId: file.id });
+    await ingestQueue.add('ingest', { fileId: file.id, ownerId: user.id }, { jobId: file.id });
     return { file, deduplicated: false };
   } catch (err) {
     // Do not leave an orphaned blob if the database write failed.

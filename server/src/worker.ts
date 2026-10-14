@@ -1,22 +1,53 @@
-import { Worker } from 'bullmq';
+import { UnrecoverableError, Worker } from 'bullmq';
 import { env } from './config/env.js';
 import { logger } from './lib/logger.js';
 import { prisma } from './lib/prisma.js';
 import { createRedis, redis } from './lib/redis.js';
+import { failAnalysis, isPermanent, processAnalysis } from './queue/processors/analyze.js';
 import { processIngest } from './queue/processors/ingest.js';
-import { closeQueues, QUEUE_NAMES, type IngestJob } from './queue/queues.js';
+import { closeQueues, QUEUE_NAMES, type AnalyzeJob, type IngestJob } from './queue/queues.js';
+import { publishEvent } from './realtime/events.js';
 
 // Workers hold blocking Redis connections, so each gets its own instead of the shared client.
-const workers = [
-  new Worker<IngestJob>(
-    QUEUE_NAMES.ingest,
-    (job) => processIngest(job.data.fileId, (p) => job.updateProgress(p)),
-    {
-      connection: createRedis(),
-      concurrency: env.QUEUE_CONCURRENCY_INGEST,
-    },
-  ),
-];
+const ingestWorker = new Worker<IngestJob>(
+  QUEUE_NAMES.ingest,
+  async (job) => {
+    const { fileId, ownerId } = job.data;
+    const emit = (percent: number, status = 'PROCESSING') =>
+      publishEvent('file:ingest:progress', ownerId, { fileId, stage: 'parsing', percent, status });
+    try {
+      await processIngest(fileId, async (percent) => {
+        await job.updateProgress(percent);
+        await emit(percent);
+      });
+      await emit(100, 'READY');
+    } catch (err) {
+      // Bad content fails for good; transient errors will be retried, so the UI keeps waiting.
+      if (err instanceof UnrecoverableError || job.attemptsMade + 1 >= (job.opts.attempts ?? 1)) {
+        await emit(100, 'FAILED');
+      }
+      throw err;
+    }
+  },
+  { connection: createRedis(), concurrency: env.QUEUE_CONCURRENCY_INGEST },
+);
+
+const analyzeWorker = new Worker<AnalyzeJob>(
+  QUEUE_NAMES.analyze,
+  async (job) => {
+    try {
+      await processAnalysis(job.data.analysisId, (stage, percent) => job.updateProgress({ stage, percent }));
+    } catch (err) {
+      const lastAttempt = job.attemptsMade + 1 >= (job.opts.attempts ?? 1);
+      // Intermediate failures stay RUNNING so the UI does not flash "failed" before a successful retry.
+      if (lastAttempt || isPermanent(err)) await failAnalysis(job.data.analysisId, err);
+      throw isPermanent(err) ? new UnrecoverableError(err instanceof Error ? err.message : 'failed') : err;
+    }
+  },
+  { connection: createRedis(), concurrency: env.QUEUE_CONCURRENCY_ANALYZE },
+);
+
+const workers = [ingestWorker, analyzeWorker];
 
 for (const worker of workers) {
   worker.on('failed', (job, err) => logger.warn({ queue: worker.name, jobId: job?.id, err }, 'job failed'));

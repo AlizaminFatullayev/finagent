@@ -5,8 +5,10 @@ import { logger } from './lib/logger.js';
 import { prisma } from './lib/prisma.js';
 import { redis } from './lib/redis.js';
 import { closeQueues } from './queue/queues.js';
+import { attachSocket } from './realtime/socket.js';
 
 const httpServer = createServer(createApp());
+const realtime = await attachSocket(httpServer);
 
 httpServer.listen(env.PORT, () => logger.info({ port: env.PORT }, 'API listening'));
 
@@ -17,7 +19,8 @@ httpServer.listen(env.PORT, () => logger.info({ port: env.PORT }, 'API listening
 async function shutdown(signal: string) {
   logger.info({ signal }, 'shutting down');
   setTimeout(() => process.exit(1), 10_000).unref();
-  await new Promise<void>((resolve) => httpServer.close(() => resolve()));
+  // Closing Socket.IO also closes the underlying HTTP server and waits for in-flight requests.
+  await realtime.close();
   await closeQueues();
   await Promise.allSettled([prisma.$disconnect(), redis.quit()]);
   process.exit(0);
