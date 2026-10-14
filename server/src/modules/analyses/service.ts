@@ -19,6 +19,16 @@ import { analysisSelect, type ChartsQuery, type CreateAnalysisBody } from './sch
 
 type Actor = { id: string; role: 'ANALYST' | 'MANAGER' | 'ADMIN' };
 
+/** Folds the stored message and code into the public `error: { code, message }` shape. */
+const present = <T extends { error: string | null; errorCode: string | null }>({
+  error,
+  errorCode,
+  ...rest
+}: T) => ({
+  ...rest,
+  error: error ? { code: errorCode ?? 'ANALYSIS_FAILED', message: error } : null,
+});
+
 const CACHE_TTL_SECONDS = 7 * 24 * 60 * 60;
 export const cacheRedisKey = (cacheKey: string) => `analysis-cache:${cacheKey}`;
 // fileId is part of the key because chart specs carry sheet ids, which differ between uploads of the same bytes.
@@ -40,6 +50,8 @@ export function computeCacheKey(fileSha256: string, params: CreateAnalysisBody) 
       provider: env.LLM_PROVIDER,
       model: env.LLM_PROVIDER === 'mock' ? 'mock' : env.LLM_MODEL,
       threshold: env.ANOMALY_THRESHOLD_AMOUNT,
+      // Results produced under a fallback policy are not reused for requests made without one.
+      ...(env.LLM_REFUSAL_FALLBACK_MODEL ? { fallback: env.LLM_REFUSAL_FALLBACK_MODEL } : {}),
     }),
   );
 }
@@ -104,7 +116,7 @@ export async function createAnalysis(
   });
 
   if (!cached) await analyzeQueue.add('analyze', { analysisId: analysis.id }, { jobId: analysis.id });
-  return analysis;
+  return present(analysis);
 }
 
 export async function rememberInCache(cacheKey: string, analysisId: string) {
@@ -118,7 +130,7 @@ export async function getAnalysis(user: Actor, analysisId: string) {
     select: analysisSelect,
   });
   if (!analysis) throw new NotFoundError('Analysis');
-  return analysis;
+  return present(analysis);
 }
 
 export async function listAnalyses(user: Actor, fileId: string, query: PaginationQuery) {
@@ -129,7 +141,7 @@ export async function listAnalyses(user: Actor, fileId: string, query: Paginatio
     orderBy: newestFirst,
     ...pageArgs(query),
   });
-  return toPage(rows, query.limit);
+  return toPage(rows.map(present), query.limit);
 }
 
 /** Builds chart specs from masked rows, streamed per sheet in keyset batches to keep memory flat. */

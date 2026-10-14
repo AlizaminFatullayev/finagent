@@ -154,6 +154,9 @@ describe('analyses', () => {
     const created = await request(app).post(`/api/files/${fileId}/analyses`).set(auth).send({}).expect(202);
     await failAnalysis(created.body.data.id, new Error('db password is hunter2'));
     const res = await request(app).get(`/api/analyses/${created.body.data.id}`).set(auth).expect(200);
-    expect(res.body.data).toMatchObject({ status: 'FAILED', error: 'The analysis could not be completed' });
+    expect(res.body.data).toMatchObject({
+      status: 'FAILED',
+      error: { code: 'ANALYSIS_FAILED', message: 'The analysis could not be completed' },
+    });
   });
 });

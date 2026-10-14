@@ -126,10 +126,7 @@
             ]
           },
           "error": {
-            "type": [
-              "string",
-              "null"
-            ]
+            "$ref": "#/components/schemas/AnalysisError"
           },
           "createdAt": {
             "type": "string",
@@ -214,6 +211,10 @@
           },
           "algorithmVersion": {
             "type": "string"
+          },
+          "fallbackFrom": {
+            "type": "string",
+            "description": "Set when the primary model refused and LLM_REFUSAL_FALLBACK_MODEL produced the summary"
           }
         },
         "required": [
@@ -383,6 +384,27 @@
           "rowIndexes",
           "affectedCount",
           "metrics"
+        ]
+      },
+      "AnalysisError": {
+        "type": [
+          "object",
+          "null"
+        ],
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "Stable code: LLM_REFUSED, LLM_TIMEOUT, LLM_ERROR, AGENT_FAILED or ANALYSIS_FAILED",
+            "example": "LLM_REFUSED"
+          },
+          "message": {
+            "type": "string",
+            "example": "The language model declined to process this request."
+          }
+        },
+        "required": [
+          "code",
+          "message"
         ]
       },
       "Error": {

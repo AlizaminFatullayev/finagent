@@ -14,6 +14,8 @@ export type AuditAction =
   | 'file.view'
   | 'file.delete'
   | 'analysis.run'
+  | 'analysis.llm_refused'
+  | 'analysis.llm_fallback'
   | 'report.export'
   | 'pii.unmask'
   | 'webhook.create'

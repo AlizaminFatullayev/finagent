@@ -145,6 +145,8 @@ model Analysis {
   model         String?
   tokenUsage    Json?
   error         String?
+  // Stable machine-readable failure code (e.g. LLM_REFUSED) next to the human-readable message.
+  errorCode     String?
   createdAt     DateTime       @default(now())
   startedAt     DateTime?
   completedAt   DateTime?

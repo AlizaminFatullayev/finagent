@@ -45,6 +45,9 @@ const schema = z
     LLM_PROVIDER: z.enum(['anthropic', 'mock']).default('anthropic'),
     LLM_MODEL: z.string().min(1).default('claude-sonnet-5-5'),
     ANTHROPIC_API_KEY: z.string().optional(),
+    // Unset (the default) means a refusal fails the analysis. Setting it is an explicit decision to
+    // send the same masked content to this other model, once, when the primary model refuses.
+    LLM_REFUSAL_FALLBACK_MODEL: z.preprocess((v) => (v === '' ? undefined : v), z.string().optional()),
     LLM_TIMEOUT_MS: int(60_000),
     LLM_MAX_RETRIES: z.coerce.number().int().min(0).default(2),
     AGENT_MAX_ITERATIONS: int(8),

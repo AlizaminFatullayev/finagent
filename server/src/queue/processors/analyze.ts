@@ -1,6 +1,7 @@
 import { UnrecoverableError } from 'bullmq';
 import { env } from '../../config/env.js';
 import { createProvider } from '../../domain/agent/llm/index.js';
+import { LLMRefusalError } from '../../domain/agent/llm/errors.js';
 import type { LLMProvider } from '../../domain/agent/llm/types.js';
 import { AgentError, runSummaryAgent } from '../../domain/agent/summaryAgent.js';
 import { analyzeWorkbook } from '../../domain/analysis/engine.js';
@@ -14,6 +15,7 @@ import { AppError } from '../../lib/errors.js';
 import { logger } from '../../lib/logger.js';
 import { prisma } from '../../lib/prisma.js';
 import { rememberInCache } from '../../modules/analyses/service.js';
+import { recordAudit } from '../../modules/audit/service.js';
 import { dispatchWebhookEvent } from '../../modules/webhooks/service.js';
 import { publishEvent } from '../../realtime/events.js';
 
@@ -41,12 +43,13 @@ async function loadMaskedSheets(fileId: string): Promise<AnalysisSheet[]> {
 
 /**
  * Runs one analysis: deterministic engine first, then the LLM narrates the computed facts.
- * The provider is injectable so tests can script it.
+ * Providers are injectable so tests can script them.
  */
 export async function processAnalysis(
   analysisId: string,
   report: StageReporter = () => {},
   provider: LLMProvider = createProvider(),
+  fallbackProvider: (model: string) => LLMProvider = createProvider,
 ) {
   const analysis = await prisma.analysis.findUnique({ where: { id: analysisId }, include: { file: true } });
   if (!analysis || analysis.status === 'COMPLETED') return;
@@ -68,11 +71,29 @@ export async function processAnalysis(
   const engine = analyzeWorkbook(sheets, { thresholdAmount: env.ANOMALY_THRESHOLD_AMOUNT });
 
   await progress('summarizing', 60);
-  const run = await runSummaryAgent(
-    provider,
-    { sheets, engine, focusColumns: params.focusColumns },
-    { language: params.language, maxIterations: env.AGENT_MAX_ITERATIONS },
-  );
+  const agentInput = { sheets, engine, focusColumns: params.focusColumns };
+  const agentOptions = { language: params.language, maxIterations: env.AGENT_MAX_ITERATIONS };
+  let run;
+  let fallbackFrom: string | null = null;
+  try {
+    run = await runSummaryAgent(provider, agentInput, agentOptions);
+  } catch (err) {
+    const to = env.LLM_REFUSAL_FALLBACK_MODEL;
+    // Off by default: data only moves to another model when an operator configured one explicitly.
+    if (!(err instanceof LLMRefusalError) || !to) throw err;
+    await recordAudit(
+      { actorId: analysis.requestedById, ip: null, userAgent: null },
+      {
+        action: 'analysis.llm_fallback',
+        resourceType: 'analysis',
+        resourceId: analysisId,
+        metadata: { fileId: analysis.fileId, provider: err.provider, from: err.model, to },
+      },
+    );
+    fallbackFrom = err.model;
+    // Exactly one attempt: a refusal here propagates and fails the analysis, so there is no loop.
+    run = await runSummaryAgent(fallbackProvider(to), agentInput, agentOptions);
+  }
   const verification = verifyNumbers(run.summary, run.toolOutputs);
   // Figures the checker could not trace back to computed values are flagged to the reader.
   const caveats = [
@@ -95,6 +116,7 @@ export async function processAnalysis(
         stats: engine.stats,
         methodology: engine.methodology,
         algorithmVersion: engine.algorithmVersion,
+        ...(fallbackFrom ? { fallbackFrom } : {}),
       },
       verification,
       model: run.model,
@@ -111,23 +133,44 @@ export async function processAnalysis(
 
 /**
  * Records a failure once retries are exhausted (or the error cannot succeed on retry).
- * Only AppError messages are stored; anything else could leak internals.
+ * Only AppError codes and messages are stored; anything else could leak internals.
  */
 export async function failAnalysis(analysisId: string, err: unknown) {
-  const message = err instanceof AppError ? err.message : 'The analysis could not be completed';
-  const analysis = await prisma.analysis.update({
-    where: { id: analysisId },
-    data: { status: 'FAILED', error: message, completedAt: new Date() },
-    include: { file: { select: { ownerId: true } } },
+  const error =
+    err instanceof AppError
+      ? { code: err.code, message: err.message }
+      : { code: 'ANALYSIS_FAILED', message: 'The analysis could not be completed' };
+  const analysis = await prisma.$transaction(async (tx) => {
+    const failed = await tx.analysis.update({
+      where: { id: analysisId },
+      data: { status: 'FAILED', error: error.message, errorCode: error.code, completedAt: new Date() },
+      include: { file: { select: { ownerId: true } } },
+    });
+    // A refusal is a provider decision worth tracing; the entry names the model but holds no content.
+    if (err instanceof LLMRefusalError) {
+      await recordAudit(
+        { actorId: failed.requestedById, ip: null, userAgent: null },
+        {
+          action: 'analysis.llm_refused',
+          resourceType: 'analysis',
+          resourceId: analysisId,
+          metadata: { fileId: failed.fileId, provider: err.provider, model: err.model },
+        },
+        tx,
+      );
+    }
+    return failed;
   });
   logger.warn({ err, analysisId }, 'analysis failed');
   await publishEvent('analysis:failed', analysis.file.ownerId, {
     analysisId,
     fileId: analysis.fileId,
-    error: message,
+    error,
   });
+  await dispatchWebhookEvent('analysis.failed', { analysisId, fileId: analysis.fileId, error });
   return analysis;
 }
 
-/** Agent misbehaviour is deterministic enough that retrying would only burn tokens. */
-export const isPermanent = (err: unknown) => err instanceof AgentError || err instanceof UnrecoverableError;
+/** Agent misbehaviour and refusals are deterministic enough that retrying would only burn tokens. */
+export const isPermanent = (err: unknown) =>
+  err instanceof AgentError || err instanceof LLMRefusalError || err instanceof UnrecoverableError;

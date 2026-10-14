@@ -156,6 +156,14 @@ downloads both report formats and prints PASS/FAIL per step.
 To use Anthropic instead of the mock provider, set `LLM_PROVIDER=anthropic` and `ANTHROPIC_API_KEY` in
 `.env`. The default model is configured with `LLM_MODEL`.
 
+**Refusals.** If the model declines a request, the analysis ends `FAILED` with
+`error: { "code": "LLM_REFUSED", "message": "The language model declined to process this request." }`.
+The provider's own refusal text is never stored or returned, the failure is not retried or cached, and an
+`analysis.llm_refused` audit entry is written. Nothing is re-routed to another model by default. Setting
+`LLM_REFUSAL_FALLBACK_MODEL` opts in to one retry on that model: **enabling it sends the same masked
+content to a different model.** The switch is audited as `analysis.llm_fallback` (`from`, `to`), the
+result records `fallbackFrom`, and a refusal by the fallback model also ends `FAILED`.
+
 ### Full stack in containers
 
 ```bash
@@ -186,8 +194,10 @@ Responses use `{ "data": ..., "meta": { ... } }`; errors use
 
 **Socket.IO**: connect with `auth: { token: <accessToken> }`. Events: `file:ingest:progress`,
 `analysis:progress` (`{ stage: parsing | analyzing | summarizing | done, percent }`),
-`analysis:completed`, `analysis:failed`. Users receive events for their own files; managers and admins
-for all files.
+`analysis:completed`, `analysis:failed` (`{ analysisId, fileId, error: { code, message } }`). Users receive
+events for their own files; managers and admins for all files. Failure codes: `LLM_REFUSED`, `LLM_TIMEOUT`,
+`LLM_ERROR`, `AGENT_FAILED`, `ANALYSIS_FAILED`; the `analysis.failed` webhook carries the same `error`
+object in `data`.
 
 **Webhook signatures**: each delivery carries `X-FinAgent-Timestamp` and
 `X-FinAgent-Signature: sha256=<hex>`, the HMAC-SHA256 of `"<timestamp>.<raw body>"` with the secret shown

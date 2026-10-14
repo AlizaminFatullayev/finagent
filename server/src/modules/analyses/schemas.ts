@@ -35,8 +35,21 @@ export const AnalysisResultSchema = z
     stats: z.array(z.unknown()).meta({ description: 'Per-sheet statistics computed in code' }),
     methodology: z.array(z.object({ ruleId: z.string(), description: z.string() })),
     algorithmVersion: z.string(),
+    fallbackFrom: z.string().optional().meta({
+      description: 'Set when the primary model refused and LLM_REFUSAL_FALLBACK_MODEL produced the summary',
+    }),
   })
   .meta({ id: 'AnalysisResult' });
+
+export const AnalysisErrorSchema = z
+  .object({
+    code: z.string().meta({
+      description: 'Stable code: LLM_REFUSED, LLM_TIMEOUT, LLM_ERROR, AGENT_FAILED or ANALYSIS_FAILED',
+      example: 'LLM_REFUSED',
+    }),
+    message: z.string().meta({ example: 'The language model declined to process this request.' }),
+  })
+  .meta({ id: 'AnalysisError' });
 
 export const AnalysisSchema = z
   .object({
@@ -56,7 +69,7 @@ export const AnalysisSchema = z
       .meta({ description: 'Numbers in the narrative checked against computed values' }),
     model: z.string().nullable(),
     tokenUsage: z.object({ inputTokens: z.number(), outputTokens: z.number() }).nullable(),
-    error: z.string().nullable(),
+    error: AnalysisErrorSchema.nullable(),
     createdAt: z.iso.datetime(),
     startedAt: z.iso.datetime().nullable(),
     completedAt: z.iso.datetime().nullable(),
@@ -85,6 +98,7 @@ export const analysisSelect = {
   model: true,
   tokenUsage: true,
   error: true,
+  errorCode: true,
   createdAt: true,
   startedAt: true,
   completedAt: true,

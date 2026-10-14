@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { AppError } from '../../lib/errors.js';
+import { LLMRefusalError } from './llm/errors.js';
 import type { ChatMessage, LLMProvider, TokenUsage, ToolResult } from './llm/types.js';
 import { systemPrompt } from './prompts.js';
 import { SummarySchema, type Summary } from './schemas.js';
@@ -44,8 +45,7 @@ export async function runSummaryAgent(
     const response = await provider.complete(messages, tools, { system });
     usage.inputTokens += response.usage.inputTokens;
     usage.outputTokens += response.usage.outputTokens;
-    if (response.stopReason === 'refusal')
-      throw new AgentError('The LLM declined to summarise this workbook');
+    if (response.stopReason === 'refusal') throw new LLMRefusalError(provider.name, response.model);
 
     messages.push({
       role: 'assistant',
