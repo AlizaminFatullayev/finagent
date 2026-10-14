@@ -1,0 +1,93 @@
+import { z } from 'zod';
+import { PageMeta, PaginationQuery } from '../../lib/pagination.js';
+
+export const FileStatusSchema = z
+  .enum(['UPLOADED', 'PROCESSING', 'READY', 'FAILED'])
+  .meta({ id: 'FileStatus' });
+
+export const ColumnSchemaSchema = z
+  .object({
+    key: z.string(),
+    name: z.string(),
+    type: z.enum(['number', 'currency', 'percent', 'date', 'boolean', 'id', 'text']),
+    nullRatio: z.number(),
+    distinctCount: z.number().int(),
+  })
+  .meta({ id: 'Column' });
+
+export const SheetSchema = z
+  .object({
+    id: z.uuid(),
+    name: z.string(),
+    position: z.number().int(),
+    headerRow: z
+      .number()
+      .int()
+      .meta({ description: '1-based worksheet row of the header; 0 if none was found' }),
+    rowCount: z.number().int(),
+    columns: z.array(ColumnSchemaSchema),
+  })
+  .meta({ id: 'Sheet' });
+
+export const FileSchema = z
+  .object({
+    id: z.uuid(),
+    ownerId: z.uuid(),
+    originalName: z.string(),
+    mimeType: z.string(),
+    sizeBytes: z.number().int(),
+    sha256: z.string(),
+    status: FileStatusSchema,
+    errorMessage: z.string().nullable(),
+    createdAt: z.iso.datetime(),
+    updatedAt: z.iso.datetime(),
+  })
+  .meta({ id: 'File' });
+
+export const FileDetailSchema = FileSchema.extend({ sheets: z.array(SheetSchema) }).meta({
+  id: 'FileDetail',
+});
+
+export const UploadMeta = z.object({
+  deduplicated: z
+    .boolean()
+    .meta({ description: 'True when the same user already uploaded identical content' }),
+});
+
+export const UploadBody = z.object({
+  file: z.string().meta({ format: 'binary', description: '.xlsx or .csv workbook' }),
+});
+
+export const FileIdParams = z.object({ id: z.uuid() });
+export const ListFilesQuery = PaginationQuery;
+export const FileListMeta = PageMeta;
+
+export const RowsQuery = z.object({
+  sheetId: z.uuid().optional().meta({ description: 'Defaults to the first sheet' }),
+  cursor: z.coerce.number().int().min(0).optional().meta({ description: 'rowIndex from `meta.nextCursor`' }),
+  limit: z.coerce.number().int().min(1).max(500).default(100),
+});
+export type RowsQuery = z.infer<typeof RowsQuery>;
+
+export const RowSchema = z
+  .object({ rowIndex: z.number().int(), data: z.record(z.string(), z.unknown()) })
+  .meta({ id: 'Row' });
+export const RowsMeta = z.object({
+  sheetId: z.uuid(),
+  nextCursor: z.number().int().nullable(),
+  masked: z.boolean(),
+});
+
+// Never expose storedName: it is an internal storage key.
+export const fileSelect = {
+  id: true,
+  ownerId: true,
+  originalName: true,
+  mimeType: true,
+  sizeBytes: true,
+  sha256: true,
+  status: true,
+  errorMessage: true,
+  createdAt: true,
+  updatedAt: true,
+} as const;

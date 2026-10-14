@@ -27,6 +27,8 @@ export const matrix: {
     body: {},
   },
   { method: 'get', path: '/api/audit-logs', allowed: ['ADMIN'] },
+  { method: 'get', path: '/api/files', allowed: ['ANALYST', 'MANAGER', 'ADMIN'] },
+  { method: 'post', path: '/api/files', allowed: ['ANALYST', 'MANAGER', 'ADMIN'] },
 ];
 
 describe('RBAC matrix', () => {

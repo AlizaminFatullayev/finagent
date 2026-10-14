@@ -27,6 +27,8 @@ export const testEnv = {
   RATE_LIMIT_GLOBAL_MAX: '100000',
   RATE_LIMIT_AUTH_MAX: '100000',
   RATE_LIMIT_ANALYSIS_MAX: '100000',
+  // Small cap so the 413 path can be tested without multi-megabyte fixtures.
+  UPLOAD_MAX_BYTES: '2000000',
 };
 
 /** Destructive test helpers refuse to run unless the target is clearly a local test instance. */

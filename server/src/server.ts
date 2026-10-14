@@ -4,6 +4,7 @@ import { env } from './config/env.js';
 import { logger } from './lib/logger.js';
 import { prisma } from './lib/prisma.js';
 import { redis } from './lib/redis.js';
+import { closeQueues } from './queue/queues.js';
 
 const httpServer = createServer(createApp());
 
@@ -17,6 +18,7 @@ async function shutdown(signal: string) {
   logger.info({ signal }, 'shutting down');
   setTimeout(() => process.exit(1), 10_000).unref();
   await new Promise<void>((resolve) => httpServer.close(() => resolve()));
+  await closeQueues();
   await Promise.allSettled([prisma.$disconnect(), redis.quit()]);
   process.exit(0);
 }

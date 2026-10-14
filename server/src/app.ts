@@ -9,6 +9,7 @@ import { globalLimiter } from './middleware/rateLimit.js';
 import { requestId } from './middleware/requestId.js';
 import { auditRouter } from './modules/audit/routes.js';
 import { authRouter } from './modules/auth/routes.js';
+import { filesRouter } from './modules/files/routes.js';
 import { healthRouter } from './modules/health/routes.js';
 import { usersRouter } from './modules/users/routes.js';
 
@@ -39,6 +40,7 @@ export function createApp() {
   app.use('/api/auth', authRouter);
   app.use('/api/users', usersRouter);
   app.use('/api/audit-logs', auditRouter);
+  app.use('/api/files', filesRouter);
 
   app.use(notFound);
   app.use(errorHandler);

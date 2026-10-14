@@ -23,7 +23,7 @@ instead (see the bottom of this file).
 | jose | 6.2.12 | 2026-09 | 155M | JWT sign/verify; zero dependencies, ESM-native, maintained. Chosen over `jsonwebtoken` (CJS, callback API). |
 | argon2 | 0.45.1 | 2026-07 | 2.6M | Argon2id password hashing (OWASP first choice); ships prebuilt binaries, so no compiler in Docker. Chosen over bcrypt (72-byte input limit). |
 | multer | 2.4.0 | 2026-09 | 23M | Multipart parsing with file size limits; v2 fixes the v1 DoS advisories. |
-| exceljs | 4.4.0 | 2023-10 | 18M | Streaming xlsx reader and xlsx writer in one package. Release cadence is slow, but the npm `xlsx` (SheetJS) package is stale and has open advisories, so exceljs remains the safer choice. Its `uuid` dependency is pinned to a patched version via `overrides`. |
+| exceljs | 4.4.0 | 2023-10 | 18M | xlsx reader/writer plus an RFC 4180 CSV parser (fast-csv) in one package. Release cadence is slow, but the npm `xlsx` (SheetJS) package is stale and has open advisories, so exceljs remains the safer choice. Its streaming reader is not used: in 4.4.0 it drops sheets and sheet names depending on zip entry order and stream chunking (reproduced in this project). Its `uuid` dependency is pinned to a patched version via `overrides`. |
 | yauzl | 3.4.0 | 2026-06 | 54M | Reads the zip central directory to measure uncompressed size before parsing (zip-bomb guard). |
 | pdfkit | 0.20.2 | 2026-08 | 11M | PDF report generation with standard fonts and no headless browser. `pdfmake` was considered, but our tables are simple enough that its extra layer is not worth it. |
 | @anthropic-ai/sdk | 0.133.0 | 2026-10 | 46M | Official client for the default LLM provider (tool use, retries, typed errors). |
