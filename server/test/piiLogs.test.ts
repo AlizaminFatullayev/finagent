@@ -7,6 +7,7 @@ import { prisma } from '../src/lib/prisma.js';
 import { processAnalysis } from '../src/queue/processors/analyze.js';
 import { processIngest } from '../src/queue/processors/ingest.js';
 import { processWebhookDelivery } from '../src/queue/processors/webhookDelivery.js';
+import type * as LoggerModule from '../src/lib/logger.js';
 import { userWithToken } from './factories.js';
 import { resetState } from './helpers.js';
 
@@ -14,7 +15,7 @@ const captured = vi.hoisted(() => ({ lines: [] as string[] }));
 
 // The real logger configuration (redaction included) at info level, writing to memory instead of stdout.
 vi.mock('../src/lib/logger.js', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../src/lib/logger.js')>();
+  const actual = await importOriginal<typeof LoggerModule>();
   const sink = new Writable({
     write(chunk, _encoding, done) {
       captured.lines.push(String(chunk));

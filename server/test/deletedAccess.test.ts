@@ -27,16 +27,17 @@ async function warmAnalysis(auth: Record<string, string>) {
 }
 
 /** Every route that exposes a file or something derived from it. */
-const derivedRoutes = (fileId: string, analysisId: string) => [
-  request(app).get(`/api/files/${fileId}`),
-  request(app).get(`/api/files/${fileId}/rows`),
-  request(app).get(`/api/files/${fileId}/analyses`),
-  request(app).post(`/api/files/${fileId}/analyses`).send({}),
-  request(app).post(`/api/files/${fileId}/unmask`).send(unmaskBody),
-  request(app).get(`/api/analyses/${analysisId}`),
-  request(app).get(`/api/analyses/${analysisId}/charts`),
-  request(app).get(`/api/analyses/${analysisId}/export?format=xlsx`),
-];
+const derivedRoutes = (fileId: string, analysisId: string) =>
+  [
+    ['GET file', request(app).get(`/api/files/${fileId}`)],
+    ['GET rows', request(app).get(`/api/files/${fileId}/rows`)],
+    ['GET analyses', request(app).get(`/api/files/${fileId}/analyses`)],
+    ['POST analyses', request(app).post(`/api/files/${fileId}/analyses`).send({})],
+    ['POST unmask', request(app).post(`/api/files/${fileId}/unmask`).send(unmaskBody)],
+    ['GET analysis', request(app).get(`/api/analyses/${analysisId}`)],
+    ['GET charts', request(app).get(`/api/analyses/${analysisId}/charts`)],
+    ['GET export', request(app).get(`/api/analyses/${analysisId}/export?format=xlsx`)],
+  ] as const;
 
 describe('access to soft-deleted and foreign files', () => {
   beforeEach(resetState);
@@ -53,9 +54,8 @@ describe('access to soft-deleted and foreign files', () => {
 
     await request(app).delete(`/api/files/${fileId}`).set(owner.auth).expect(200);
     for (const u of [owner, manager, admin]) {
-      for (const req of derivedRoutes(fileId, analysisId)) {
-        const res = await req.set(u.auth);
-        expect([res.req.method, res.req.path, res.status]).toEqual([res.req.method, res.req.path, 404]);
+      for (const [route, req] of derivedRoutes(fileId, analysisId)) {
+        expect([route, (await req.set(u.auth)).status]).toEqual([route, 404]);
       }
     }
     // No new analysis, export or reveal slipped through on a deleted file.
@@ -70,9 +70,8 @@ describe('access to soft-deleted and foreign files', () => {
     const other = await userWithToken(app);
     const { fileId, analysisId } = await warmAnalysis(owner.auth);
 
-    for (const req of derivedRoutes(fileId, analysisId)) {
-      const res = await req.set(other.auth);
-      expect([res.req.method, res.req.path, res.status]).toEqual([res.req.method, res.req.path, 404]);
+    for (const [route, req] of derivedRoutes(fileId, analysisId)) {
+      expect([route, (await req.set(other.auth)).status]).toEqual([route, 404]);
     }
   });
 });
