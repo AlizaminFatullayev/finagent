@@ -1,41 +1,35 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { createBrowserRouter, RouterProvider, type RouteObject } from 'react-router';
-import { ToastHost } from '../components/ui/Toast';
+import { createBrowserRouter, RouterProvider } from 'react-router';
+import { ApiError } from '../api/errors';
+import { AuthProvider } from '../auth/AuthProvider';
 import { TooltipProvider } from '../components/ui/Overlays';
+import { ToastHost } from '../components/ui/Toast';
+import { SocketProvider } from '../realtime/SocketProvider';
+import { routes } from './routes';
 
+// Client errors (4xx) are final; only network and server errors are retried, once.
 const queryClient = new QueryClient({
-  defaultOptions: { queries: { retry: 1, refetchOnWindowFocus: false } },
+  defaultOptions: {
+    queries: {
+      retry: (count, error) => count < 1 && !(error instanceof ApiError && error.status < 500),
+      refetchOnWindowFocus: false,
+    },
+  },
 });
 
-// The design-system page exists only in development; the branch is removed from production bundles.
-const devRoutes: RouteObject[] = import.meta.env.DEV
-  ? [
-      {
-        path: '/dev/design-system',
-        lazy: async () => ({ Component: (await import('../dev/DesignSystemPage')).default }),
-      },
-    ]
-  : [];
-
-const router = createBrowserRouter([
-  ...devRoutes,
-  {
-    path: '*',
-    element: (
-      <main className="content">
-        <h1 className="t24">FinAgent</h1>
-      </main>
-    ),
-  },
-]);
+const router = createBrowserRouter(routes);
 
 export function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <TooltipProvider delayDuration={300}>
-        <RouterProvider router={router} />
-        <ToastHost />
-      </TooltipProvider>
+      <AuthProvider>
+        <SocketProvider>
+          <TooltipProvider delayDuration={300}>
+            <RouterProvider router={router} />
+            <ToastHost />
+          </TooltipProvider>
+        </SocketProvider>
+      </AuthProvider>
     </QueryClientProvider>
   );
 }

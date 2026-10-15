@@ -8,7 +8,14 @@ import {
 import { cx } from '../../lib/cx';
 import { Icon } from './Icon';
 
-type FieldProps = { label: ReactNode; error?: string | null; help?: ReactNode; className?: string };
+type FieldProps = {
+  label: ReactNode;
+  error?: string | null;
+  /** Error styling without a message (e.g. both login fields after a 401). */
+  invalid?: boolean;
+  help?: ReactNode;
+  className?: string;
+};
 
 export function FieldError({ children, id }: { children: ReactNode; id?: string }) {
   return (
@@ -23,6 +30,7 @@ export function FieldError({ children, id }: { children: ReactNode; id?: string 
 export function TextField({
   label,
   error,
+  invalid,
   help,
   className,
   ...input
@@ -36,8 +44,8 @@ export function TextField({
       </label>
       <input
         id={id}
-        className={cx('input', error && 'is-error', input.type === 'url' && 'mono')}
-        aria-invalid={error ? true : undefined}
+        className={cx('input', (error || invalid) && 'is-error', input.type === 'url' && 'mono')}
+        aria-invalid={error || invalid ? true : undefined}
         aria-describedby={error || help ? hint : undefined}
         {...input}
       />
@@ -58,6 +66,7 @@ export function TextField({
 export function PasswordField({
   label,
   error,
+  invalid,
   className,
   ...input
 }: FieldProps & InputHTMLAttributes<HTMLInputElement>) {
@@ -73,9 +82,9 @@ export function PasswordField({
       <div className="inwrap">
         <input
           id={id}
-          className={cx('input', error && 'is-error')}
+          className={cx('input', (error || invalid) && 'is-error')}
           type={shown ? 'text' : 'password'}
-          aria-invalid={error ? true : undefined}
+          aria-invalid={error || invalid ? true : undefined}
           {...input}
         />
         <button

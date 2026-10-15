@@ -54,8 +54,36 @@ export type Screen = {
 
 const VIEWPORTS = { desktop: { width: 1280, height: 800 }, mobile: { width: 390, height: 844 } };
 
+// A wrong password would count towards the lockout of a real seed user, so the error state uses an
+// unknown email and the lockout state is simulated by intercepting the login call.
+const failLogin = async (page: Page) => {
+  await page.getByLabel('Email').fill('nobody@bank.az');
+  await page.getByLabel('Password', { exact: true }).fill('wrong-password-1');
+  await page.getByRole('button', { name: 'Sign in' }).click();
+  await page.getByText('Invalid email or password').waitFor();
+};
+const lockLogin = async (page: Page) => {
+  await page.route('**/api/auth/login', (route) =>
+    route.fulfill({
+      status: 429,
+      headers: { 'Content-Type': 'application/json', 'Retry-After': '872' },
+      body: JSON.stringify({
+        error: { code: 'TOO_MANY_REQUESTS', message: 'Locked', details: null, requestId: 'r' },
+      }),
+    }),
+  );
+  await page.getByLabel('Email').fill('r.karimli@bank.az');
+  await page.getByLabel('Password', { exact: true }).fill('wrongpass1');
+  await page.getByRole('button', { name: 'Sign in' }).click();
+  await page.getByText('Sign-in is paused for this account').waitFor();
+};
+
 export const SCREENS: Screen[] = [
   { name: 'DesignSystem', path: '/dev/design-system', dark: true, only: 'desktop' },
+  { name: 'Login', path: '/login', axe: true },
+  { name: 'LoginError', path: '/login', dark: true, act: failLogin },
+  { name: 'LoginLockout', path: '/login', act: lockLogin, only: 'desktop' },
+  { name: 'Shell', path: '/account', role: 'admin' },
 ];
 
 async function signIn(page: Page, role: RoleName) {

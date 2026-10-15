@@ -346,3 +346,11 @@
   .menu a.mi { color: var(--text-primary); text-decoration: none; }
   .menu a.mi.danger { color: var(--sev-high-fg); }
 }
+
+/* Touch targets on phones: the design's password eye (40px) and segmented buttons (32-40px) grow to 44. */
+@layer components {
+  @media (max-width: 480px) {
+    .inwrap .trail { height: 44px; right: 0; }
+    .seg button { height: 44px; }
+  }
+}
