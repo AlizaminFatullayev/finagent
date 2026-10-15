@@ -84,7 +84,76 @@ export const SCREENS: Screen[] = [
   { name: 'LoginError', path: '/login', dark: true, act: failLogin },
   { name: 'LoginLockout', path: '/login', act: lockLogin, only: 'desktop' },
   { name: 'Shell', path: '/account', role: 'admin' },
+  { name: 'Dashboard', path: '/', role: 'manager', axe: true },
+  { name: 'DashboardDark', path: '/', role: 'admin', dark: true, only: 'desktop' },
+  { name: 'Upload', path: '/upload', role: 'analyst' },
+  {
+    name: 'UploadDuplicate',
+    path: '/upload',
+    role: 'analyst',
+    only: 'desktop',
+    act: async (page) => {
+      await apiAs(page, 'analyst').then((a) => a.sampleFile());
+      await page.locator('input[type=file]').setInputFiles(SAMPLE_PATH());
+      await page.getByText('You already uploaded this file').waitFor();
+    },
+  },
+  { name: 'Files', path: '/files', role: 'manager', axe: true },
+  { name: 'FilesAnalyst', path: '/files', role: 'analyst', only: 'desktop' },
+  { name: 'FileDetail', path: sampleFilePath('analyst'), role: 'analyst', axe: true },
+  {
+    name: 'FileDetailRevealed',
+    path: sampleFilePath('analyst'),
+    role: 'analyst',
+    act: async (page) => {
+      const show = page.getByRole('button', { name: /^Show \[?[A-Z]+_\d+/ }).first();
+      await show.click();
+      await page.getByLabel('Reason for revealing').fill('Design verification of the reveal flow');
+      await page.getByRole('button', { name: 'Reveal' }).click();
+      await page.getByRole('button', { name: 'Done' }).click();
+    },
+  },
 ];
+
+const SAMPLE_PATH = () =>
+  fileURLToPath(new URL('../../server/samples/synthetic-bank-transactions.xlsx', import.meta.url));
+
+/** API access as a seed user (for setting up data before a screenshot). */
+export async function apiAs(page: Page, role: RoleName) {
+  const login = await page.request.post(`${BASE}/api/auth/login`, { data: credentials(role) });
+  const { accessToken } = (await login.json()).data as { accessToken: string };
+  const headers = { Authorization: `Bearer ${accessToken}` };
+  return {
+    get: async (path: string) => (await (await page.request.get(`${BASE}${path}`, { headers })).json()).data,
+    post: async (path: string, data: unknown) =>
+      (await (await page.request.post(`${BASE}${path}`, { headers, data })).json()).data,
+    /** Uploads the synthetic sample (deduplicated per user) and waits until it is READY. */
+    sampleFile: async (): Promise<string> => {
+      const res = await page.request.post(`${BASE}/api/files`, {
+        headers,
+        multipart: {
+          file: {
+            name: 'synthetic-bank-transactions.xlsx',
+            mimeType: 'application/octet-stream',
+            buffer: readFileSync(SAMPLE_PATH()),
+          },
+        },
+      });
+      const id = (await res.json()).data.id as string;
+      for (let i = 0; i < 60; i++) {
+        const f = (await (await page.request.get(`${BASE}/api/files/${id}`, { headers })).json()).data;
+        if (f.status === 'READY') return id;
+        if (f.status === 'FAILED') throw new Error('sample ingest failed');
+        await page.waitForTimeout(1000);
+      }
+      throw new Error('sample ingest timed out');
+    },
+  };
+}
+
+function sampleFilePath(role: RoleName) {
+  return async (page: Page) => `/files/${await (await apiAs(page, role)).sampleFile()}`;
+}
 
 async function signIn(page: Page, role: RoleName) {
   const res = await page.request.post(`${BASE}/api/auth/login`, { data: credentials(role) });
@@ -133,7 +202,8 @@ async function shoot(browser: Browser, screen: Screen, viewport: keyof typeof VI
   if (screen.act) await screen.act(page);
   await page.waitForTimeout(400);
   const file = `${screen.name}-${VIEWPORTS[viewport].width}${dark ? '-dark' : ''}.png`;
-  await page.screenshot({ path: `${OUT}${file}`, fullPage: true });
+  // Revealed values never end up in an image: their chips are painted over (layout stays visible).
+  await page.screenshot({ path: `${OUT}${file}`, fullPage: true, mask: [page.locator('.tok.rev > span')] });
 
   const result: Record<string, unknown> = { screen: screen.name, file };
   if (viewport === 'mobile') {

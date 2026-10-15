@@ -354,3 +354,15 @@
     .seg button { height: 44px; }
   }
 }
+
+/* Touch targets below 760px: token chips and their Show/Hide buttons, inline card links and small
+   filter buttons reach 44px. The design draws phone chips at 32px; the 44px rule wins. */
+@layer components {
+  @media (max-width: 760px) {
+    .tok { height: auto; min-height: 44px; }
+    .tok button { min-height: 44px; min-width: 44px; justify-content: center; }
+    .tok .tl { min-height: 44px; }
+    .cardhead a, .mbody > .row > a { display: inline-flex; align-items: center; min-height: 44px; }
+    .btn-sm { min-width: 44px; }
+  }
+}

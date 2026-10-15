@@ -3,6 +3,9 @@ import { RequireAuth, RequireRole } from '../auth/guards';
 import { AccountPage } from '../features/account/AccountPage';
 import { LoginPage } from '../features/auth/LoginPage';
 import { DashboardPage } from '../features/dashboard/DashboardPage';
+import { FileDetailPage } from '../features/files/FileDetailPage';
+import { FilesPage } from '../features/files/FilesPage';
+import { UploadPage } from '../features/upload/UploadPage';
 import { AppShell } from './AppShell';
 import { NotFoundPage } from './NotFoundPage';
 
@@ -26,6 +29,9 @@ export const routes: RouteObject[] = [
         element: <AppShell />,
         children: [
           { index: true, element: <DashboardPage /> },
+          { path: 'upload', element: <UploadPage /> },
+          { path: 'files', element: <FilesPage /> },
+          { path: 'files/:fileId', element: <FileDetailPage /> },
           { path: 'account', element: <AccountPage /> },
           // Admin pages arrive in a later phase; the gate is already in place for direct URLs.
           { path: 'admin/*', element: <RequireRole roles={['ADMIN']} /> },

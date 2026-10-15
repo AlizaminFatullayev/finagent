@@ -78,6 +78,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
       if (p.status !== 'PROCESSING') {
         void queryClient.invalidateQueries({ queryKey: ['files'] });
         void queryClient.invalidateQueries({ queryKey: ['file', p.fileId] });
+        void queryClient.invalidateQueries({ queryKey: ['dashboard'] });
       }
       dispatch('file:ingest:progress', p);
     });

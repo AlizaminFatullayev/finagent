@@ -278,7 +278,12 @@ export function Tabs<T extends string>({
   children?: ReactNode;
 }) {
   return (
-    <RadixTabs.Root value={value} onValueChange={(v) => onChange(v as T)} activationMode="manual">
+    <RadixTabs.Root
+      value={value}
+      onValueChange={(v) => onChange(v as T)}
+      activationMode="manual"
+      style={{ display: 'flex', flexDirection: 'column', gap: 24 }}
+    >
       <RadixTabs.List className="tabs" aria-label={label} style={{ overflowX: 'auto' }}>
         {tabs.map((t) => (
           <RadixTabs.Trigger
