@@ -18,12 +18,10 @@ function variables(css: string, selector: string): Record<string, string> {
 
 // The design export is a local, untracked reference: the guard runs wherever it is present.
 describe.skipIf(!existsSync(designCss))('design tokens', () => {
-  const design = readFileSync(designCss, 'utf8');
-  const ours = readFileSync(globalsCss, 'utf8');
-
+  // Files are read inside the test: skipped suites still run their describe callback.
   it.each([':root', '.dark'])('%s matches fa.css name for name and value for value', (selector) => {
-    const expected = variables(design, selector);
+    const expected = variables(readFileSync(designCss, 'utf8'), selector);
     expect(Object.keys(expected).length).toBeGreaterThan(20);
-    expect(variables(ours, selector)).toEqual(expected);
+    expect(variables(readFileSync(globalsCss, 'utf8'), selector)).toEqual(expected);
   });
 });
