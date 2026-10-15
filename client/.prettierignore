@@ -1,0 +1,10 @@
+dist/
+coverage/
+node_modules/
+.screenshots/
+test-results/
+playwright-report/
+package-lock.json
+# Verbatim ports of finagent-design/assets/fa.css; formatting would rewrite token values.
+src/styles/globals.css
+src/styles/components.css

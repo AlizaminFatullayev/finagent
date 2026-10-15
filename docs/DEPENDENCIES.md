@@ -54,3 +54,46 @@ Prisma release.
 - SSRF IP checks: `node:net` `BlockList` plus a custom DNS `lookup` on the outgoing request.
 - Worker-to-API event forwarding: a single Redis pub/sub channel (~20 lines) instead of `@socket.io/redis-emitter`.
 - Statistics, anomaly rules and Benford's law: plain TypeScript, so every number is auditable.
+
+## Client
+
+Checked with `npm view`, the npm downloads API (last week) and `npm audit` (0 advisories) in October 2026.
+Accessible primitives (dialog, drawer, menu, tabs, tooltip, toast) come from maintained headless packages;
+anything that is a few lines is written in-house (see the end of this section).
+
+### Runtime
+
+| Package | Version | Last publish | Weekly downloads | Why |
+| --- | --- | --- | --- | --- |
+| react, react-dom | 19.3.1 | 2026-10 | 188M / 177M | UI library named by the design handoff. |
+| react-router | 8.4.0 | 2026-10 | 57M | Routing with nested layouts, guards and lazy routes. |
+| @tanstack/react-query | 5.104.3 | 2026-10 | 65M | Server-state cache, retries and socket-driven invalidation; the reveal call runs with `gcTime: 0`. |
+| radix-ui | 1.8.1 | 2026-10 | 17M | Headless, accessible dialog, dropdown menu, tabs, tooltip and accordion (focus trap, focus return, keyboard). One tree-shaken package instead of one per primitive. |
+| sonner | 2.0.8 | 2026-08 | 49M | Toast queue with an `aria-live` region; rendered with the design's own toast markup. |
+| recharts | 3.10.1 | 2026-10 | 55M | Line, bar, histogram and donut charts colored from CSS variables. `react-is` is its peer dependency. |
+| socket.io-client | 4.8.4 | 2026-09 | 16M | Matches the server's Socket.IO 4 (handshake `auth.token`, reconnects). |
+| openapi-fetch | 0.17.0 | 2026-06 | 11M | 6 kB typed fetch wrapper over the generated OpenAPI types; no hand-written request shapes. |
+| @fontsource-variable/geist, @fontsource-variable/jetbrains-mono | 5.3.0 | 2026-07 | 3.3M / 2.0M | Self-hosted design fonts (no CDN): only the latin and latin-ext files are bundled. |
+
+### Development
+
+| Package | Why |
+| --- | --- |
+| vite 8, @vitejs/plugin-react | Dev server with `/api` and `/socket.io` proxy, production build. |
+| tailwindcss 4, @tailwindcss/vite | Utilities mapped onto the design tokens with `@theme inline`; default palettes are cleared. |
+| typescript 5.9 | Type checking. Kept on 5.x because `openapi-typescript` 7 declares `typescript@^5` as a peer. |
+| openapi-typescript 7.13 | Generates `src/api/schema.d.ts` from `docs/openapi.json` (`npm run api:types`). |
+| vitest 5, jsdom, @testing-library/react, @testing-library/user-event, @testing-library/jest-dom | Unit and component tests. |
+| msw 3 | Mocks the HTTP API at the network level in component tests. |
+| @playwright/test, @axe-core/playwright | Local e2e smoke, design screenshots and accessibility checks (not run in CI). |
+| eslint, @eslint/js, typescript-eslint, eslint-plugin-react-hooks, eslint-config-prettier, prettier | Linting and formatting, same settings as `server/`. |
+| @types/react, @types/react-dom, @types/node | Type definitions. |
+
+### Written in-house on purpose
+
+- Class joining: a one-line helper instead of `clsx` / `tailwind-merge` (components use the design's own classes).
+- Drag and drop: native drag events (about 25 lines) instead of `react-dropzone`.
+- Upload progress: one `XMLHttpRequest` helper (fetch cannot report upload progress); no axios.
+- Icons: the 36 thin-stroke SVG paths from the design in one `Icon` component, so strokes match exactly; no icon package.
+- Forms: controlled inputs and the server's 422 field errors; no form or schema library for five small forms.
+- Countdown timers, token parsing, cursor stacks, theme persistence.

@@ -1,0 +1,8 @@
+node_modules/
+dist/
+coverage/
+# Design-verify and e2e artifacts may show revealed values; never commit them.
+.screenshots/
+test-results/
+playwright-report/
+*.local

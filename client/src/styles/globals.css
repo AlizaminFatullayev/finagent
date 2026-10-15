@@ -1,0 +1,128 @@
+@import "tailwindcss";
+@import "./fonts.css";
+@import "./components.css";
+
+/* Dark mode is the .dark class on <html>, set before the first render (see src/lib/theme.ts). */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* Design tokens, copied verbatim from finagent-design/assets/fa.css (:root for light, .dark for dark).
+   The only change is the selector: the design scopes light tokens to ":root, .fa"; here they live on :root
+   alone so .dark on <html> is not shadowed. src/styles/tokens.test.ts fails on any drift. */
+:root {
+  --surface-primary: #FFFFFF;
+  --surface-secondary: #F5F6F8;
+  --surface-tertiary: #ECEEF2;
+  --border-subtle: #E1E4EA;
+  --border-strong: #C5CBD4;
+  --text-primary: #141820;
+  --text-secondary: #46505E;
+  --text-muted: #646D7A;
+  --accent: #2F5D8A;
+  --accent-hover: #264E76;
+  --accent-contrast: #FFFFFF;
+  --accent-subtle: #E8EEF5;
+  --accent-text: #2A5580;
+  --focus-ring: #2F5D8A;
+  --overlay: rgba(20, 24, 32, 0.40);
+  --sev-low-fg: #475569; --sev-low-bg: #EEF1F5; --sev-low-border: #CFD6E0;
+  --sev-med-fg: #855A10; --sev-med-bg: #FAF2E3; --sev-med-border: #E8D3A9;
+  --sev-high-fg: #9E3A31; --sev-high-bg: #FAEDEB; --sev-high-border: #EDC8C3;
+  --success-fg: #2D6844; --success-bg: #EAF3ED; --success-border: #C3DECB;
+  --chart-1: #2F5D8A; --chart-2: #6F90B2; --chart-3: #A8BCD1; --chart-4: #8A93A0; --chart-5: #4E6B78;
+  --chart-grid: #E6E9EE;
+  --shadow-overlay: 0 8px 24px rgba(20, 24, 32, 0.10);
+  --radius-sm: 4px; --radius: 6px; --radius-lg: 8px;
+  --font-ui: "Geist", ui-sans-serif, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+}
+.dark {
+  --surface-primary: #161A20;
+  --surface-secondary: #0F1216;
+  --surface-tertiary: #1E232B;
+  --border-subtle: #272D36;
+  --border-strong: #3A424E;
+  --text-primary: #E6E9ED;
+  --text-secondary: #B1B8C2;
+  --text-muted: #8D96A2;
+  --accent: #7FA3C8;
+  --accent-hover: #93B3D4;
+  --accent-contrast: #0F1216;
+  --accent-subtle: #1C2836;
+  --accent-text: #93B3D4;
+  --focus-ring: #93B3D4;
+  --overlay: rgba(0, 0, 0, 0.55);
+  --sev-low-fg: #A9B5C4; --sev-low-bg: #1D232B; --sev-low-border: #343D49;
+  --sev-med-fg: #DDB269; --sev-med-bg: #2A2316; --sev-med-border: #4C3E22;
+  --sev-high-fg: #E8908A; --sev-high-bg: #2D1C1B; --sev-high-border: #553330;
+  --success-fg: #82C49C; --success-bg: #17261D; --success-border: #2C4A37;
+  --chart-1: #7FA3C8; --chart-2: #56789B; --chart-3: #3B5674; --chart-4: #7D8794; --chart-5: #8FB0BC;
+  --chart-grid: #262C35;
+  --shadow-overlay: 0 8px 24px rgba(0, 0, 0, 0.40);
+}
+
+/* Tailwind reads the tokens through @theme inline, so `bg-surface-primary`, `text-muted`, `rounded-lg`
+   and friends always resolve to the live CSS variable (and follow .dark). Default palettes and type
+   sizes are cleared: only design values exist. */
+@theme inline {
+  --color-*: initial;
+  --color-surface-primary: var(--surface-primary);
+  --color-surface-secondary: var(--surface-secondary);
+  --color-surface-tertiary: var(--surface-tertiary);
+  --color-border-subtle: var(--border-subtle);
+  --color-border-strong: var(--border-strong);
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-muted: var(--text-muted);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-contrast: var(--accent-contrast);
+  --color-accent-subtle: var(--accent-subtle);
+  --color-accent-text: var(--accent-text);
+  --color-focus-ring: var(--focus-ring);
+  --color-overlay: var(--overlay);
+  --color-sev-low-fg: var(--sev-low-fg);
+  --color-sev-low-bg: var(--sev-low-bg);
+  --color-sev-low-border: var(--sev-low-border);
+  --color-sev-med-fg: var(--sev-med-fg);
+  --color-sev-med-bg: var(--sev-med-bg);
+  --color-sev-med-border: var(--sev-med-border);
+  --color-sev-high-fg: var(--sev-high-fg);
+  --color-sev-high-bg: var(--sev-high-bg);
+  --color-sev-high-border: var(--sev-high-border);
+  --color-success-fg: var(--success-fg);
+  --color-success-bg: var(--success-bg);
+  --color-success-border: var(--success-border);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-chart-grid: var(--chart-grid);
+  --color-transparent: transparent;
+
+  --radius-*: initial;
+  --radius-sm: var(--radius-sm);
+  --radius: var(--radius);
+  --radius-lg: var(--radius-lg);
+
+  --font-*: initial;
+  --font-ui: var(--font-ui);
+  --font-mono: var(--font-mono);
+
+  --text-*: initial;
+  --text-12: 12px;
+  --text-12--line-height: 16px;
+  --text-14: 14px;
+  --text-14--line-height: 20px;
+  --text-16: 16px;
+  --text-16--line-height: 24px;
+  --text-20: 20px;
+  --text-20--line-height: 28px;
+  --text-24: 24px;
+  --text-24--line-height: 32px;
+  --text-32: 32px;
+  --text-32--line-height: 40px;
+
+  --shadow-*: initial;
+  --shadow-overlay: var(--shadow-overlay);
+}
