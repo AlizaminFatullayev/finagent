@@ -339,3 +339,10 @@
     }
   }
 }
+
+/* Radix state hooks onto the design's own states. */
+@layer components {
+  .menu .mi[data-highlighted] { background: var(--surface-tertiary); outline: none; }
+  .menu a.mi { color: var(--text-primary); text-decoration: none; }
+  .menu a.mi.danger { color: var(--sev-high-fg); }
+}
