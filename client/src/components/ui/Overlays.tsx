@@ -40,7 +40,8 @@ export function Modal({
           <Dialog.Content
             className={cx('dialog', className)}
             style={maxWidth ? { maxWidth } : undefined}
-            role={role}
+            // Only override the default role="dialog" when asked; passing undefined would remove it.
+            {...(role ? { role } : {})}
             onEscapeKeyDown={locked ? (e) => e.preventDefault() : undefined}
             onPointerDownOutside={locked ? (e) => e.preventDefault() : undefined}
           >

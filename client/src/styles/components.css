@@ -366,3 +366,11 @@
     .btn-sm { min-width: 44px; }
   }
 }
+
+/* Compact select used inside table rows (Users role column, 32px as designed; 44px on phones). */
+@layer components {
+  .select.select-sm { height: 32px; }
+  @media (max-width: 480px) {
+    .select.select-sm { height: 44px; }
+  }
+}

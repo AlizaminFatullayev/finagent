@@ -5,6 +5,9 @@ import { AnalyzeButton } from '../features/analysis/AnalyzeButton';
 import { AnomaliesPage } from '../features/analysis/AnomaliesPage';
 import { ChartsPage } from '../features/analysis/ChartsPage';
 import { ReportPage } from '../features/analysis/ReportPage';
+import { AuditLogPage } from '../features/admin/AuditLogPage';
+import { UsersPage } from '../features/admin/UsersPage';
+import { WebhooksPage } from '../features/admin/WebhooksPage';
 import { AccountPage } from '../features/account/AccountPage';
 import { LoginPage } from '../features/auth/LoginPage';
 import { DashboardPage } from '../features/dashboard/DashboardPage';
@@ -45,8 +48,17 @@ export const routes: RouteObject[] = [
           { path: 'analyses/:analysisId/charts', element: <ChartsPage /> },
           { path: 'analyses/:analysisId/report', element: <ReportPage /> },
           { path: 'account', element: <AccountPage /> },
-          // Admin pages arrive in a later phase; the gate is already in place for direct URLs.
-          { path: 'admin/*', element: <RequireRole roles={['ADMIN']} /> },
+          // Hidden from navigation for other roles, and blocked here for direct URLs.
+          {
+            path: 'admin',
+            element: <RequireRole roles={['ADMIN']} />,
+            children: [
+              { path: 'users', element: <UsersPage /> },
+              { path: 'audit', element: <AuditLogPage /> },
+              { path: 'webhooks', element: <WebhooksPage /> },
+              { path: '*', element: <NotFoundPage /> },
+            ],
+          },
           { path: '*', element: <NotFoundPage /> },
         ],
       },

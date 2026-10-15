@@ -84,6 +84,63 @@ export const SCREENS: Screen[] = [
   { name: 'LoginError', path: '/login', dark: true, act: failLogin },
   { name: 'LoginLockout', path: '/login', act: lockLogin, only: 'desktop' },
   { name: 'Shell', path: '/account', role: 'admin' },
+  { name: 'Users', path: '/admin/users', role: 'admin', axe: true },
+  {
+    name: 'UsersCreate',
+    path: '/admin/users',
+    role: 'admin',
+    only: 'desktop',
+    act: async (page) => {
+      await page.getByRole('button', { name: 'Create user' }).click();
+    },
+  },
+  {
+    // Simulated response: creating a real webhook would make the local worker deliver events to it.
+    name: 'WebhookSecret',
+    path: '/admin/webhooks',
+    role: 'admin',
+    only: 'desktop',
+    act: async (page) => {
+      await page.route('**/api/webhooks', (route) =>
+        route.request().method() === 'POST'
+          ? route.fulfill({
+              status: 201,
+              contentType: 'application/json',
+              body: JSON.stringify({
+                data: {
+                  id: '00000000-0000-4000-8000-0000000000aa',
+                  url: 'https://hooks.example.test/finagent/analysis',
+                  events: ['analysis.completed', 'analysis.failed'],
+                  isActive: true,
+                  createdById: '00000000-0000-4000-8000-0000000000bb',
+                  createdAt: new Date().toISOString(),
+                  secret: 'synthetic-secret-for-screenshots-only',
+                },
+                meta: {},
+              }),
+            })
+          : route.fallback(),
+      );
+      await page.getByRole('button', { name: 'Add webhook' }).first().click();
+      await page.getByLabel('Endpoint URL').fill('https://hooks.example.test/finagent/analysis');
+      await page.getByRole('dialog').getByRole('button', { name: 'Add webhook' }).click();
+      await page.getByText('You won’t see this secret again').waitFor();
+    },
+  },
+  { name: 'AuditLog', path: '/admin/audit', role: 'admin', axe: true },
+  { name: 'Webhooks', path: '/admin/webhooks', role: 'admin', axe: true },
+  {
+    name: 'WebhookAdd',
+    path: '/admin/webhooks',
+    role: 'admin',
+    only: 'desktop',
+    act: async (page) => {
+      await page.getByRole('button', { name: 'Add webhook' }).first().click();
+      await page.getByLabel('Endpoint URL').fill('https://10.20.0.14/finagent/hook');
+      await page.getByRole('dialog').getByRole('button', { name: 'Add webhook' }).click();
+      await page.getByText('Private and internal addresses').waitFor();
+    },
+  },
   { name: 'Dashboard', path: '/', role: 'manager', axe: true },
   { name: 'DashboardDark', path: '/', role: 'admin', dark: true, only: 'desktop' },
   { name: 'Upload', path: '/upload', role: 'analyst' },
@@ -263,8 +320,12 @@ async function shoot(browser: Browser, screen: Screen, viewport: keyof typeof VI
   if (screen.act) await screen.act(page);
   await page.waitForTimeout(400);
   const file = `${screen.name}-${VIEWPORTS[viewport].width}${dark ? '-dark' : ''}.png`;
-  // Revealed values never end up in an image: their chips are painted over (layout stays visible).
-  await page.screenshot({ path: `${OUT}${file}`, fullPage: true, mask: [page.locator('.tok.rev > span')] });
+  // Revealed values and one-time secrets never end up in an image: they are painted over.
+  await page.screenshot({
+    path: `${OUT}${file}`,
+    fullPage: true,
+    mask: [page.locator('.tok.rev > span'), page.locator('[data-sensitive]')],
+  });
 
   const result: Record<string, unknown> = { screen: screen.name, file };
   if (viewport === 'mobile') {
