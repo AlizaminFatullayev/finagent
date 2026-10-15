@@ -17,9 +17,10 @@ export function useFiles() {
 }
 
 /** File with sheets and inferred schema. Note: every GET is recorded as `file.view` in the audit log. */
-export function useFile(fileId: string) {
+export function useFile(fileId: string, enabled = true) {
   return useQuery({
     queryKey: ['file', fileId],
+    enabled: enabled && Boolean(fileId),
     queryFn: () => unwrap(api.GET('/api/files/{id}', { params: { path: { id: fileId } } })),
   });
 }

@@ -105,3 +105,6 @@ processingNow, avgIngestSeconds }` with the same visibility rules as `GET /api/f
     `refresh` and `logout`.
 13. **Ingest detail in progress events.** `file:ingest:progress` has `percent` only; the design shows the
     current sheet and rows read. _Proposal:_ add `{ sheet, sheetIndex, sheetCount, rowsRead, rowsTotal }`.
+14. **Force a new analysis run.** Identical requests on identical content are served from cache (201,
+    `cached: true`), so "Run again" with the same language and columns returns the previous result. _Proposal:_
+    `POST /api/files/{id}/analyses { force: true }` (still audited and rate limited).

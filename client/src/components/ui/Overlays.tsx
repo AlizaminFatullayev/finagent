@@ -147,7 +147,7 @@ export function Menu({
     <DropdownMenu.Root modal={false}>
       <DropdownMenu.Trigger asChild>{trigger}</DropdownMenu.Trigger>
       <DropdownMenu.Portal>
-        <DropdownMenu.Content className="menu" align={align} sideOffset={4} style={{ zIndex: 45, width }}>
+        <DropdownMenu.Content className="menu" align={align} sideOffset={4} style={{ zIndex: 50, width }}>
           {items.map((item, i) => {
             if (item === 'separator')
               return <DropdownMenu.Separator key={i} className="divider" style={{ margin: '4px 0' }} />;
@@ -215,7 +215,7 @@ export function FilterSelect<T extends string>({
           className="menu"
           align="start"
           sideOffset={4}
-          style={{ zIndex: 45, maxHeight: 320, overflowY: 'auto' }}
+          style={{ zIndex: 50, maxHeight: 320, overflowY: 'auto' }}
         >
           <DropdownMenu.RadioGroup value={value} onValueChange={(v) => onChange(v as T)}>
             {options.map((o) => (
@@ -241,7 +241,7 @@ export function Tip({ content, children }: { content: ReactNode; children: React
     <Tooltip.Root>
       <Tooltip.Trigger asChild>{children}</Tooltip.Trigger>
       <Tooltip.Portal>
-        <Tooltip.Content className="tooltip" sideOffset={6} style={{ zIndex: 50 }}>
+        <Tooltip.Content className="tooltip" sideOffset={6} style={{ zIndex: 55 }}>
           {content}
         </Tooltip.Content>
       </Tooltip.Portal>

@@ -102,6 +102,51 @@ export const SCREENS: Screen[] = [
   { name: 'FilesAnalyst', path: '/files', role: 'analyst', only: 'desktop' },
   { name: 'FileDetail', path: sampleFilePath('analyst'), role: 'analyst', axe: true },
   {
+    name: 'StartAnalysis',
+    path: async (p) => `${await sampleFilePath('analyst')(p)}?analyze=1`,
+    role: 'analyst',
+  },
+  { name: 'Result', path: analysisPath('analyst'), role: 'analyst', dark: true, axe: true },
+  { name: 'ResultAz', path: analysisPath('analyst', '', 'az'), role: 'analyst', only: 'desktop' },
+  { name: 'Anomalies', path: analysisPath('analyst', '/anomalies'), role: 'analyst', dark: true, axe: true },
+  {
+    name: 'AnomaliesDrawer',
+    path: analysisPath('analyst', '/anomalies'),
+    role: 'analyst',
+    only: 'desktop',
+    act: async (page) => {
+      await page
+        .getByRole('button', { name: /^View affected rows/ })
+        .first()
+        .click();
+      await page.getByRole('heading', { name: 'Affected rows' }).waitFor();
+      await page.waitForTimeout(800);
+    },
+  },
+  { name: 'Charts', path: analysisPath('analyst', '/charts'), role: 'analyst' },
+  {
+    name: 'ChartsFullscreen',
+    path: analysisPath('analyst', '/charts'),
+    role: 'analyst',
+    only: 'desktop',
+    act: async (page) => {
+      await page
+        .getByRole('button', { name: /^Expand / })
+        .nth(4)
+        .click();
+    },
+  },
+  {
+    name: 'Export',
+    path: analysisPath('analyst'),
+    role: 'analyst',
+    only: 'desktop',
+    act: async (page) => {
+      await page.getByRole('button', { name: 'Export' }).click();
+    },
+  },
+  { name: 'ExportPdf', path: analysisPath('analyst', '/report'), role: 'analyst', only: 'desktop' },
+  {
     name: 'FileDetailRevealed',
     path: sampleFilePath('analyst'),
     role: 'analyst',
@@ -149,6 +194,22 @@ export async function apiAs(page: Page, role: RoleName) {
       throw new Error('sample ingest timed out');
     },
   };
+}
+
+/** A completed analysis of the sample (cached after the first run). */
+async function sampleAnalysis(page: Page, role: RoleName, language: 'en' | 'az' = 'en') {
+  const api = await apiAs(page, role);
+  const fileId = await api.sampleFile();
+  let analysis = await api.post(`/api/files/${fileId}/analyses`, { language, focusColumns: [] });
+  for (let i = 0; i < 60 && analysis.status !== 'COMPLETED'; i++) {
+    if (analysis.status === 'FAILED') throw new Error('sample analysis failed');
+    await page.waitForTimeout(1000);
+    analysis = await api.get(`/api/analyses/${analysis.id}`);
+  }
+  return analysis.id as string;
+}
+function analysisPath(role: RoleName, suffix = '', language: 'en' | 'az' = 'en') {
+  return async (page: Page) => `/analyses/${await sampleAnalysis(page, role, language)}${suffix}`;
 }
 
 function sampleFilePath(role: RoleName) {
