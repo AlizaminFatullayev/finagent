@@ -15,7 +15,9 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "test": "vitest run",
-    "api:types": "openapi-typescript ../docs/openapi.json -o src/api/schema.d.ts && prettier --write src/api/schema.d.ts"
+    "api:types": "openapi-typescript ../docs/openapi.json -o src/api/schema.d.ts && prettier --write src/api/schema.d.ts",
+    "e2e": "playwright test",
+    "screenshots": "node scripts/screenshots.ts"
   },
   "license": "UNLICENSED",
   "dependencies": {

@@ -41,7 +41,7 @@ describe('logout', () => {
     expect(getAccessToken()).toBeNull();
     expect(getRefreshToken()).toBeNull();
     expect(queryClient.getQueryCache().getAll()).toHaveLength(0);
-    expect(auth!.status).toBe('anonymous');
+    expect(auth!.status).toBe('signedOut');
     expect(auth!.user).toBeNull();
   });
 });

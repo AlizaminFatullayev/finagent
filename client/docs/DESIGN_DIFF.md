@@ -54,3 +54,12 @@ compared. Automated checks in the same run: no horizontal overflow at 390px, int
 | Webhooks                   | No Last delivery column, no Active toggle (status shown as a badge) and no History; each row has Delete with a confirmation instead.                                                                                                                                            | Kept: the API has no pause, delivery or history endpoints (gap 11).                           |
 | Webhook secret             | Captured with a simulated create response, so the local worker never delivers to a test URL; the secret is painted over in the image.                                                                                                                                           | Verification method only.                                                                     |
 | All dialogs                | Fixed during verification: a dialog without an explicit role lost `role="dialog"`.                                                                                                                                                                                              | Fixed.                                                                                        |
+
+## Final run
+
+Last full run of `npm run screenshots` against the local stack (mock LLM): 51 screenshots, 0 findings. No
+horizontal overflow at 390px, no interactive element under 44x44 on mobile, and no critical or serious axe
+violations on Login, Dashboard, Files, File detail, Result, Anomalies, Users, Audit log and Webhooks.
+Fixed during verification: tab-to-panel spacing, upload footnote wrapping, the donut total and axis tick
+clipping on the result page, dialogs losing `role="dialog"`, 44px mobile targets (password eye, segmented
+controls, token chips, role selects, inline links).

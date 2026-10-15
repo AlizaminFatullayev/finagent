@@ -1,0 +1,35 @@
+name: Client CI
+
+on:
+  push:
+    branches: [main]
+    paths: ['client/**', 'docs/openapi.json', '.github/workflows/client-ci.yml']
+  pull_request:
+    paths: ['client/**', 'docs/openapi.json', '.github/workflows/client-ci.yml']
+
+concurrency:
+  group: client-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  client:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: client
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: client/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm run format:check
+      # Unit and component tests only; the e2e smoke needs the full local stack and stays local.
+      - run: npm test
+      - run: npm run build
+      - name: Production bundle has no dev-only routes
+        run: '! grep -rl "design-system" dist'

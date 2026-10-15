@@ -9,34 +9,12 @@
 import AxeBuilder from '@axe-core/playwright';
 import { chromium, type Browser, type Page } from '@playwright/test';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { credentials, type RoleName } from '../e2e/credentials.ts';
 import { fileURLToPath } from 'node:url';
 
 const BASE = process.env.SCREENSHOT_BASE_URL ?? 'http://localhost:5173';
 const OUT = fileURLToPath(new URL('../.screenshots/', import.meta.url));
 const filter = process.argv[2];
-
-type RoleName = 'admin' | 'manager' | 'analyst';
-
-/** Seed credentials: environment first, then the documented local-dev defaults in .env.example. */
-function credentials(role: RoleName) {
-  const upper = role.toUpperCase();
-  let example: Record<string, string> = {};
-  try {
-    const text = readFileSync(fileURLToPath(new URL('../../.env.example', import.meta.url)), 'utf8');
-    example = Object.fromEntries(
-      text
-        .split('\n')
-        .filter((l) => /^SEED_[A-Z_]+=/.test(l))
-        .map((l) => [l.slice(0, l.indexOf('=')), l.slice(l.indexOf('=') + 1).trim()]),
-    );
-  } catch {
-    // Fall through to the environment only.
-  }
-  const email = process.env[`SEED_${upper}_EMAIL`] ?? example[`SEED_${upper}_EMAIL`];
-  const password = process.env[`SEED_${upper}_PASSWORD`] ?? example[`SEED_${upper}_PASSWORD`];
-  if (!email || !password) throw new Error(`Missing SEED_${upper}_EMAIL / SEED_${upper}_PASSWORD`);
-  return { email, password };
-}
 
 export type Screen = {
   name: string;
@@ -257,7 +235,16 @@ export async function apiAs(page: Page, role: RoleName) {
 async function sampleAnalysis(page: Page, role: RoleName, language: 'en' | 'az' = 'en') {
   const api = await apiAs(page, role);
   const fileId = await api.sampleFile();
+  // Reuse a finished analysis: every POST counts against the hourly analysis limit.
+  const existing = ((await api.get(`/api/files/${fileId}/analyses?limit=50`)) ?? []) as {
+    id: string;
+    status: string;
+    language: string;
+  }[];
+  const done = existing.find((a) => a.status === 'COMPLETED' && a.language === language);
+  if (done) return done.id;
   let analysis = await api.post(`/api/files/${fileId}/analyses`, { language, focusColumns: [] });
+  if (!analysis) throw new Error('could not start an analysis (rate limited?)');
   for (let i = 0; i < 60 && analysis.status !== 'COMPLETED'; i++) {
     if (analysis.status === 'FAILED') throw new Error('sample analysis failed');
     await page.waitForTimeout(1000);

@@ -35,16 +35,17 @@ describe('route guards', () => {
 
   it.each<Role>(['ANALYST', 'MANAGER'])(
     'blocks admin pages for %s with a 403 screen and no admin navigation',
-    (role) => {
+    async (role) => {
       renderAt('/admin/users', role);
-      expect(screen.getByText('You don’t have access to this')).toBeInTheDocument();
+      expect(await screen.findByText('You don’t have access to this')).toBeInTheDocument();
       expect(screen.queryByRole('link', { name: 'Users' })).toBeNull();
     },
   );
 
-  it('lets admins through', () => {
+  it('lets admins through', async () => {
     renderAt('/admin/users', 'ADMIN');
+    expect((await screen.findAllByRole('link', { name: 'Users' })).length).toBeGreaterThan(0);
+    expect(await screen.findByRole('heading', { name: 'Users' })).toBeInTheDocument();
     expect(screen.queryByText('You don’t have access to this')).toBeNull();
-    expect(screen.getAllByRole('link', { name: 'Users' }).length).toBeGreaterThan(0);
   });
 });

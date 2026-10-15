@@ -10,6 +10,8 @@ export function RequireAuth({ children }: { children?: ReactNode }) {
   const { status } = useAuth();
   const location = useLocation();
   if (status === 'loading') return null;
+  // After a sign-out the next user starts on the dashboard, not on the previous user's page.
+  if (status === 'signedOut') return <Navigate to="/login" replace />;
   if (status === 'anonymous') {
     return <Navigate to="/login" replace state={{ from: location.pathname + location.search }} />;
   }

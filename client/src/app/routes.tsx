@@ -1,13 +1,6 @@
 import type { RouteObject } from 'react-router';
 import { RequireAuth, RequireRole } from '../auth/guards';
-import { AnalysisPage } from '../features/analysis/AnalysisPage';
 import { AnalyzeButton } from '../features/analysis/AnalyzeButton';
-import { AnomaliesPage } from '../features/analysis/AnomaliesPage';
-import { ChartsPage } from '../features/analysis/ChartsPage';
-import { ReportPage } from '../features/analysis/ReportPage';
-import { AuditLogPage } from '../features/admin/AuditLogPage';
-import { UsersPage } from '../features/admin/UsersPage';
-import { WebhooksPage } from '../features/admin/WebhooksPage';
 import { AccountPage } from '../features/account/AccountPage';
 import { LoginPage } from '../features/auth/LoginPage';
 import { DashboardPage } from '../features/dashboard/DashboardPage';
@@ -27,6 +20,7 @@ const devRoutes: RouteObject[] = import.meta.env.DEV
     ]
   : [];
 
+// Charts (Recharts) and admin pages load on demand to keep the first bundle small.
 export const routes: RouteObject[] = [
   ...devRoutes,
   { path: '/login', element: <LoginPage /> },
@@ -43,19 +37,48 @@ export const routes: RouteObject[] = [
             path: 'files/:fileId',
             element: <FileDetailPage analyzeSlot={(file) => <AnalyzeButton file={file} />} />,
           },
-          { path: 'analyses/:analysisId', element: <AnalysisPage /> },
-          { path: 'analyses/:analysisId/anomalies', element: <AnomaliesPage /> },
-          { path: 'analyses/:analysisId/charts', element: <ChartsPage /> },
-          { path: 'analyses/:analysisId/report', element: <ReportPage /> },
+          {
+            path: 'analyses/:analysisId',
+            lazy: async () => ({
+              Component: (await import('../features/analysis/AnalysisPage')).AnalysisPage,
+            }),
+          },
+          {
+            path: 'analyses/:analysisId/anomalies',
+            lazy: async () => ({
+              Component: (await import('../features/analysis/AnomaliesPage')).AnomaliesPage,
+            }),
+          },
+          {
+            path: 'analyses/:analysisId/charts',
+            lazy: async () => ({ Component: (await import('../features/analysis/ChartsPage')).ChartsPage }),
+          },
+          {
+            path: 'analyses/:analysisId/report',
+            lazy: async () => ({ Component: (await import('../features/analysis/ReportPage')).ReportPage }),
+          },
           { path: 'account', element: <AccountPage /> },
           // Hidden from navigation for other roles, and blocked here for direct URLs.
           {
             path: 'admin',
             element: <RequireRole roles={['ADMIN']} />,
             children: [
-              { path: 'users', element: <UsersPage /> },
-              { path: 'audit', element: <AuditLogPage /> },
-              { path: 'webhooks', element: <WebhooksPage /> },
+              {
+                path: 'users',
+                lazy: async () => ({ Component: (await import('../features/admin/UsersPage')).UsersPage }),
+              },
+              {
+                path: 'audit',
+                lazy: async () => ({
+                  Component: (await import('../features/admin/AuditLogPage')).AuditLogPage,
+                }),
+              },
+              {
+                path: 'webhooks',
+                lazy: async () => ({
+                  Component: (await import('../features/admin/WebhooksPage')).WebhooksPage,
+                }),
+              },
               { path: '*', element: <NotFoundPage /> },
             ],
           },

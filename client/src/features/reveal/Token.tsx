@@ -22,7 +22,15 @@ export function Token({
   if (!reveal) return <TokenChip token={token} style={style} />;
   const value = reveal.values[token];
   if (value !== undefined)
-    return <TokenChip token={token} value={value} onHide={() => reveal.hide(token)} style={style} />;
+    return (
+      <TokenChip
+        token={token}
+        value={value}
+        selectable={selectable}
+        onHide={() => reveal.hide(token)}
+        style={style}
+      />
+    );
   const selected = reveal.selected.includes(token);
   return (
     <TokenChip

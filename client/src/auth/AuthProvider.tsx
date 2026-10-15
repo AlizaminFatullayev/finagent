@@ -4,7 +4,8 @@ import { api, unwrap } from '../api/client';
 import type { Role, User } from '../api/types';
 import { clearSession, getRefreshToken, onSession, refreshSession, setSession } from './session';
 
-type Status = 'loading' | 'anonymous' | 'authenticated' | 'expired';
+/** `signedOut` is `anonymous` after an explicit logout (no return path is kept). */
+type Status = 'loading' | 'anonymous' | 'signedOut' | 'authenticated' | 'expired';
 
 type AuthValue = {
   status: Status;
@@ -50,7 +51,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (event === 'cleared') {
           queryClient.clear();
           setUser(null);
-          setStatus('anonymous');
+          setStatus('signedOut');
         }
       }),
     [queryClient],
